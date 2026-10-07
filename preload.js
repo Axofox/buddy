@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-const IN = ['look', 'squash', 'say', 'dismiss', 'mode', 'config', 'night', 'poked', 'open-reminder-form'];
-const OUT = ['drag-start', 'drag-end', 'menu', 'bubble-rect', 'alerting', 'form-closed'];
+const IN = ['look', 'squash', 'say', 'dismiss', 'mode', 'config', 'night', 'poked', 'open-form', 'typing'];
+const OUT = ['drag-start', 'drag-end', 'menu', 'bubble-rect', 'alerting', 'form-closed', 'open-ask', 'ask'];
 
 contextBridge.exposeInMainWorld('buddy', {
   on: (channel, cb) => {

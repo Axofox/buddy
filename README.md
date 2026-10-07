@@ -1,13 +1,16 @@
 # Buddy
 
-A little bouncing ball with eyes that lives on your desktop. It:
+A little bouncing flame with eyes that lives on your desktop. It:
 
 - **tells you when Claude Code needs you** (a permission prompt, or Claude waiting for input) and when Claude is done
 - **says good morning** the first time you're at your computer each day
 - **reminds you to eat** at lunch and dinner time
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
-- **suggests a stretch break** when you've been at it for a long time
+- **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
+- **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
+- **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
+- **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
 - bounces around, **follows your mouse** if you ask, and its eyes always watch your cursor
 
 ![Buddy's moods](docs/moods.png)
@@ -23,18 +26,19 @@ npm install
 npm start
 ```
 
-The ball appears near the bottom-right of your screen and says hi.
+The flame appears near the bottom-right of your screen and says hi. A little flame icon also appears in your menu bar (or system tray) with the same menu as right-clicking it.
 
 ## Playing with it
 
 | Do this | What happens |
 |---|---|
-| **Click** the ball | It giggles. Poke it a lot and it gets grumpy. |
+| **Click** it | It giggles. Poke it a lot and it gets grumpy. |
+| **Double-click** it | Opens *Ask me anything*. |
 | **Drag and throw** it | It flies and bounces off the screen edges. |
-| **Right-click** it | Menu: *Bounce around*, *Follow me*, *Sit still*, *Sleep*, *Add reminder…*, your reminders list, sounds, start at login, settings, quit |
+| **Right-click** it, or click the **menu bar icon** | Menu: *Bounce around*, *Follow me*, *Sit still*, *Sleep*, *Ask me anything…*, *Add reminder…*, your reminders list, sounds, start at login, settings, quit |
 | **Click a bubble** with an orange border | Dismisses it. Important messages stay until you click them. |
 
-When something important comes in (Claude needs you, or a reminder is due), it turns orange, shows a **!**, jiggles, plays a little sound, and in *Bounce* mode hops toward your mouse until you click it.
+When something important comes in (Claude needs you, or a reminder is due), it turns golden, shows a **!**, jiggles, plays a little sound, and in *Bounce* mode hops toward your mouse until you click it. Whenever your mouse gets close, it holds still so you can catch it.
 
 ### Reminders
 
@@ -44,9 +48,29 @@ You can write the time as `10m`, `45 min`, `1h30`, `in 2 hours`, `14:30`, `2pm` 
 
 Reminders are saved, so they survive a restart. To cancel one, right-click → **Reminders**.
 
+### Ask me anything
+
+Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Windows/Linux), or right-click → **Ask me anything…**. Type your question and press Enter.
+
+Buddy passes the question to [Claude Code](https://claude.com/claude-code) (`claude -p`), so you need Claude Code installed and logged in. Nothing else to set up. Answers are short, and Claude can search the web when it needs to. If you ask again within 10 minutes, Claude remembers the earlier question, so follow-ups like "and in French?" work. Click the answer to close it.
+
+### Distraction nudges
+
+Every 15 seconds Buddy checks which app is in front and, for browsers, which website. After 30 minutes on a distracting site (a short hop to another tab doesn't reset the count), it says something like *"Hey, you've been on YouTube for 30 min 👀"*, then again every 15 minutes. It only counts while you're at the computer, and nothing is stored or sent anywhere.
+
+- **macOS:** works with Safari, Chrome, Arc, Brave, Edge and Vivaldi. The first time, macOS asks whether Buddy (shown as "Electron") may control your browser. Say OK; without it, Buddy can only see app names. You can change this later in System Settings → Privacy & Security → Automation. Firefox doesn't let other apps read its address bar, so it isn't supported.
+- **Linux:** install `xdotool`; Buddy then matches window titles.
+- **Windows:** not supported yet.
+
+Change the sites, add apps (for example `"Steam"`), or adjust the timing in the settings file (`distraction`). Set `"distraction": false` to turn it off.
+
+### Typing
+
+While you type, the flame flickers along and stops hopping around, so it doesn't distract you. After 10, 25, 45 and 90 minutes of typing, it cheers you on. Buddy never reads your keys: it only notices that there's input while the mouse stays still. Scrolling with a trackpad can look like typing too. Turn the cheers off with `"typingCheers": false`.
+
 ## Connect it to Claude Code
 
-Claude Code can run a command on certain events (a feature called *hooks*). Buddy comes with `notify.js`, which forwards those events to the ball. It finishes instantly and never blocks Claude, even when Buddy isn't running.
+Claude Code can run a command on certain events (a feature called *hooks*). Buddy comes with `notify.js`, which forwards those events to Buddy. It finishes instantly and never blocks Claude, even when Buddy isn't running.
 
 Add this to `~/.claude/settings.json` and replace `/path/to/buddy` with the folder where you cloned this repo. On Windows, use forward slashes, for example `C:/Users/you/buddy/notify.js`.
 
@@ -70,7 +94,7 @@ If that file already has a `"hooks"` section, merge these three entries into it.
 
 | Claude Code event | Buddy |
 |---|---|
-| `Notification` (needs permission, or waiting for you) | 🙋 orange alert that stays until you click it, plus an OS notification. The project folder name is shown. |
+| `Notification` (needs permission, or waiting for you) | 🙋 golden alert that stays until you click it, plus an OS notification. The project folder name is shown. |
 | `Stop` (Claude finished its turn) | "Claude is done! Your turn ✨" |
 | `UserPromptSubmit` (you replied to Claude) | Clears that session's alert automatically |
 
@@ -104,7 +128,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 {
   "name": "",
   "port": 47321,
-  "color": "#6ec6ff",
+  "color": "#ee5a3a",
   "startMode": "bounce",
   "morning": { "from": "05:00", "to": "11:30" },
   "lunch": "12:30",
@@ -113,6 +137,17 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "bedtimeUntil": "04:00",
   "bedtimeRepeatMinutes": 30,
   "breakEveryMinutes": 90,
+  "waterEveryMinutes": 60,
+  "distraction": {
+    "afterMinutes": 30,
+    "repeatMinutes": 15,
+    "sites": ["youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com", "twitter.com",
+      "reddit.com", "netflix.com", "twitch.tv", "pinterest.com"],
+    "apps": []
+  },
+  "typingCheers": true,
+  "askShortcut": "CommandOrControl+Shift+Space",
+  "askModel": "",
   "idleChatter": true,
   "systemNotifications": true,
   "sounds": true
@@ -120,23 +155,29 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 ```
 
 - `name`: what Buddy calls you ("Good morning, Sam!").
-- Set `lunch`, `dinner` or `bedtime` to `""` to turn that nudge off, and `breakEveryMinutes` to `0` to turn off stretch breaks.
+- Set `lunch`, `dinner` or `bedtime` to `""` to turn that nudge off, and `breakEveryMinutes` or `waterEveryMinutes` to `0` to turn off stretch or water breaks.
+- `askShortcut`: the keyboard shortcut for *Ask me anything*. Set it to `""` to turn it off. `askModel`: for example `"haiku"` for faster answers; leave it empty to use your Claude Code default.
+- New settings from updates are added to your file automatically, so you can find them there.
 - After `bedtime`, Buddy also looks sleepy.
 - The morning, meal, bedtime and break nudges only fire while you're actually at your computer. Reminders fire regardless and wait for you.
 - If you change `port`, restart Buddy, and set the `BUDDY_PORT` environment variable for `notify.js`.
 
 ## Notes
 
-- **Linux:** transparent windows need a compositor. GNOME, KDE and most modern desktops have one. Without one, the ball sits on a black square.
-- **macOS:** Buddy hides its Dock icon. To quit, right-click the ball → **Bye for now**.
-- Tests for the reminder time parser: `npm test`.
+- **Linux:** transparent windows need a compositor. GNOME, KDE and most modern desktops have one. Without one, the flame sits on a black square.
+- **macOS:** Buddy hides its Dock icon. To quit, right-click the flame (or click the menu bar icon) → **Bye for now**.
+- Tests: `npm test`.
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `main.js` | Window, physics (gravity, bounces, throw, follow), daily schedule, reminders, local server, menu |
-| `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder form |
-| `index.html`, `style.css` | The ball (a single SVG) and all expressions |
+| `main.js` | Window, physics (gravity, bounces, throw, follow), daily schedule, water, distraction and typing checks, reminders, local server, menus |
+| `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
+| `index.html`, `style.css` | The flame (a single SVG) and all expressions |
+| `ask.js` | *Ask me anything* → Claude Code |
+| `activity.js` | Which app and website are in front |
+| `habits.js` | Distraction and typing logic (tested) |
+| `assets/` | Menu bar icons |
 | `when.js` | Turns "1h30" or "2pm" into a time |
 | `notify.js` | Claude Code hook → Buddy |
