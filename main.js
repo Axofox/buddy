@@ -8,7 +8,8 @@ const http = require('http');
 const { parseWhen, formatWhen, toMinutes } = require('./when');
 const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
 const { currentActivity } = require('./activity');
-const { askClaude } = require('./ask');
+const { askClaude, cleanAnswer } = require('./ask');
+const { askLocal } = require('./local-ai');
 const { fetchMeetings } = require('./calendar');
 const {
   findHelper, appleMeetings, appleReminders, mergeMeetings, AccessDenied,
@@ -48,6 +49,8 @@ const DEFAULT_CONFIG = {
   typingCheers: true,
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
+  askWith: 'claude', // "claude", or "local" for a private AI on this computer (Ollama)
+  localModel: 'llama3.2:3b', // which Ollama model to use for "local"
   calendars: [], // secret iCal (.ics) addresses, e.g. from Google Calendar
   appleCalendar: false, // Mac: read Apple Calendar (turn on from the menu)
   appleReminders: false, // Mac: pop up Apple Reminders when they're due
@@ -552,9 +555,13 @@ async function ask(question) {
     return;
   }
   asking = true;
+  const followUp = Date.now() - lastAskAt < 10 * 60000;
+  if (config.askWith === 'local') {
+    await askLocally(q, followUp);
+    return;
+  }
   say(pick(['Hmm, let me think… 🤔', 'Thinking… 🤔', 'Ooh, good one. One sec… 🤔']),
     { mood: 'thinking', duration: 150000, key: 'ask', urgent: true });
-  const followUp = Date.now() - lastAskAt < 10 * 60000;
   const res = await askClaude(q, {
     cwd: path.join(app.getPath('userData'), 'ask'),
     followUp,
@@ -572,6 +579,33 @@ async function ask(question) {
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  }
+}
+
+// The local AI forgets everything between calls, so we keep the last few
+// turns ourselves for follow-up questions.
+let localHistory = [];
+
+async function askLocally(q, followUp) {
+  say(pick(['Thinking it over, right here on your Mac… 🤔', 'Hmm… (local brain, give me a moment) 🤔']),
+    { mood: 'thinking', duration: 200000, key: 'ask', urgent: true });
+  if (!followUp) localHistory = [];
+  const model = config.localModel || 'llama3.2:3b';
+  const res = await askLocal(q, { model, history: localHistory });
+  asking = false;
+  lastAskAt = Date.now();
+  if (res.ok) {
+    const text = cleanAnswer(res.text);
+    localHistory = localHistory.concat({ role: 'user', content: q }, { role: 'assistant', content: text }).slice(-8);
+    say(text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
+  } else if (res.notRunning) {
+    say('My local brain is asleep 😴 Open the Ollama app (or install it from ollama.com), then ask me again.',
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else if (res.noModel) {
+    say(`I don't have the "${model}" model yet. In Terminal, run: ollama pull ${model}`,
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else {
+    say(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   }
 }
 
@@ -980,6 +1014,20 @@ function menuTemplate() {
       accelerator: config.askShortcut || undefined,
       registerAccelerator: false,
       click: () => openForm('ask'),
+    },
+    {
+      label: 'Answers from',
+      submenu: [
+        {
+          label: 'Claude (smartest)', type: 'radio', checked: config.askWith !== 'local',
+          click: () => saveConfigKey('askWith', 'claude'),
+        },
+        {
+          label: `Local AI on this computer (private, free): ${config.localModel || 'llama3.2:3b'}`,
+          type: 'radio', checked: config.askWith === 'local',
+          click: () => saveConfigKey('askWith', 'local'),
+        },
+      ],
     },
     { label: 'Add reminder…', click: () => openForm('remind') },
     { label: 'Reminders', submenu: reminderItems },

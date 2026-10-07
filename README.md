@@ -87,6 +87,16 @@ Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Win
 
 Buddy passes the question to [Claude Code](https://claude.com/claude-code) (`claude -p`), so you need the Claude Code command line installed and logged in. Nothing else to set up. If Buddy says it can't find Claude Code, open Terminal and run `claude --version`. If that says "command not found", install it with `curl -fsSL https://claude.ai/install.sh | bash`, run `claude` once to log in, then ask Buddy again. Answers are short, and Claude can search the web when it needs to. If you ask again within 10 minutes, Claude remembers the earlier question, so follow-ups like "and in French?" work. Click the answer to close it.
 
+#### Private answers with a local AI (Ollama)
+
+Prefer answers that never leave your computer? Install [Ollama](https://ollama.com/download) (free, no account needed), then in Terminal:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+Right-click Buddy → **Answers from** → **Local AI on this computer**. Questions then go to Ollama on your Mac instead of Claude. Local answers are free and private, but less clever than Claude, and on older Macs they can take a while. To use a different model, set `localModel` in the settings file (and `ollama pull` it first). Models ending in `:cloud` run on Ollama's servers, not on your computer, so they aren't private.
+
 ### Distraction nudges
 
 Every 15 seconds Buddy checks which app is in front and, for browsers, which website. After 30 minutes on a distracting site (a short hop to another tab doesn't reset the count), it says something like *"Hey, you've been on YouTube for 30 min 👀"*, then again every 15 minutes. It only counts while you're at the computer, and nothing is stored or sent anywhere.
@@ -181,6 +191,8 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "typingCheers": true,
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
+  "askWith": "claude",
+  "localModel": "llama3.2:3b",
   "calendars": [],
   "appleCalendar": false,
   "appleReminders": false,
@@ -213,6 +225,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
 | `apple.js`, `helpers/eventkit.swift` | Apple Calendar & Reminders (the Swift helper reads them through macOS's EventKit) |
 | `activity.js` | Which app and website are in front |
