@@ -12,6 +12,7 @@ const { askClaude, cleanAnswer } = require('./ask');
 const { askLocal } = require('./local-ai');
 const { today: todayStats, recapText } = require('./day');
 const { detectFeeling, isQuestion } = require('./feelings');
+const petLife = require('./pet');
 const {
   readBattery, BatteryWatcher, NetWatcher, isOnline,
 } = require('./power');
@@ -55,6 +56,7 @@ const DEFAULT_CONFIG = {
     apps: [],
   },
   typingCheers: true,
+  pet: true, // grow from a dot by collecting sparks; false = always the classic flame
   outfit: 'auto', // "auto" (holidays), "none", or always "halloween" | "christmas" | "newyear" | "valentine"
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
@@ -374,6 +376,81 @@ function stats() {
 function count(field, n = 1) {
   stats()[field] += n;
   saveState();
+  if (petLife.SPARKS[field]) earn(field);
+}
+
+// ---------------------------------------------------------------------------
+// The growing pet (pet.js for the rules, shapes.js for the looks)
+
+let pet = petLife.newPet();
+
+function sendPet() {
+  send('pet', config.pet === false ? { life: 'flame', stage: 3 } : { life: pet.life, stage: pet.stage });
+}
+
+function earn(kind) {
+  if (config.pet === false) return;
+  const events = petLife.addSparks(pet, petLife.SPARKS[kind] || 0);
+  state.pet = pet;
+  saveState();
+  if (events.includes('grew')) {
+    sendPet();
+    const p = petLife.progress(pet);
+    setTimeout(() => {
+      say(`I grew! ✨ I'm a ${p.name.toLowerCase()} now ${p.emoji}`, { mood: 'joy', duration: 6000, sound: 'happy', key: 'pet' });
+      send('sparks', 30);
+    }, 800);
+  }
+  if (events.includes('ready')) {
+    setTimeout(() => say('Something is happening… I\'m ready to transform! ✨ Right-click me → Pet → Grow into…',
+      { mood: 'excited', sticky: true, sound: 'happy', key: 'pet-ready' }), 7000);
+  }
+}
+
+function growInto(life) {
+  pet = petLife.transform(pet, life);
+  state.pet = pet;
+  saveState();
+  sendPet();
+  const l = petLife.LIVES[life];
+  say(`✨ Poof! I'm a tiny dot again… let's grow into a ${l.name}! ${l.emoji}`, { mood: 'joy', duration: 7000, sound: 'happy', key: 'pet' });
+  send('sparks', 30);
+}
+
+// A little slideshow of every look, so you can see what's ahead.
+function showAllLooks() {
+  const steps = [];
+  for (const life of Object.keys(petLife.LIVES)) for (let s = 0; s < 5; s += 1) steps.push({ life, stage: s });
+  steps.forEach((st, i) => setTimeout(() => send('pet', st), i * 900));
+  setTimeout(sendPet, steps.length * 900 + 600);
+  say('Here\'s everything I could become… 👀', { duration: steps.length * 900, key: 'pet' });
+}
+
+function petMenu() {
+  if (config.pet === false) {
+    return [{ label: 'Let me grow from a dot again', click: () => { saveConfigKey('pet', true); sendPet(); } }];
+  }
+  const p = petLife.progress(pet);
+  const items = [
+    { label: `${p.emoji} ${p.name} · ${p.xp}/${p.next} ✨${p.ready ? '  (ready to transform!)' : ''}`, enabled: false },
+    {
+      label: 'How do I grow?',
+      click: () => say('I collect ✨ when you take care of yourself: 💧 water +3, 🧘 breaks +3, 🔥 typing streaks +2, '
+        + '📅 meetings +2, ☀️ good morning +2, ⏰ reminders and Claude tasks +1. Then I grow!', { duration: 15000, key: 'pet' }),
+    },
+  ];
+  if (p.ready) {
+    items.push({
+      label: 'Grow into…',
+      submenu: Object.entries(petLife.LIVES).map(([life, l]) => ({ label: `${l.emoji} a ${l.name}`, click: () => growInto(life) })),
+    });
+  }
+  items.push(
+    { label: 'Show me all my looks', click: showAllLooks },
+    { type: 'separator' },
+    { label: 'Stay a classic flame (no growing)', click: () => { saveConfigKey('pet', false); sendPet(); } },
+  );
+  return items;
 }
 let lastWaterAt = Date.now();
 let nextChatterAt = Date.now() + 20 * 60000;
@@ -438,6 +515,7 @@ function scheduleCheck() {
   if (m && state.lastMorning !== today() && inWindow(nowMin, m.from, m.to)) {
     state.lastMorning = today();
     saveState();
+    earn('morning');
     if (mode === 'sleep') setMode(config.startMode === 'sleep' ? 'bounce' : config.startMode);
     say(pick([
       `Good morning${name()}! ☀️`,
@@ -556,7 +634,7 @@ async function checkDistraction() {
 // ---------------------------------------------------------------------------
 // Typing: the flame flickers while you type and cheers on long streaks.
 
-const typing = new TypingTracker({ windowSize: 12 }); // ~6 s, so it reacts quickly
+const typing = new TypingTracker({ windowSize: 6 }); // ~3 s: reacts after ~1.5 s of typing, even for short messages
 let lastCursor = null;
 let idleWorks = false; // some systems always report 0; don't take that as typing
 
@@ -599,6 +677,7 @@ async function sampleTyping() {
     }
   }
   if (r.levelChanged) send('typing', r.level);
+  if (r.milestone) earn('typingStreak');
   if (r.milestone && config.typingCheers) {
     const lines = {
       10: ['You\'re on fire! 🔥', 'Look at you go! ⌨️✨', 'Tap tap tap! 🔥'],
@@ -693,7 +772,12 @@ async function askLocally(q, followUp) {
   }
 }
 
+let lastJoySpark = 0;
 function react(feeling) {
+  if (feeling === 'joy' && Date.now() - lastJoySpark > 10 * 60000) {
+    lastJoySpark = Date.now();
+    earn('joy');
+  }
   if (feeling === 'joy') {
     say(pick(['Yaaay! 🎉', 'WOOHOO! 🥳', 'Yesss! 🔥', 'Let\'s gooo! ✨', 'Happy dance! 💃']),
       { mood: 'joy', duration: 3500, sound: 'happy', key: 'feel' });
@@ -1177,6 +1261,7 @@ function menuTemplate() {
     { label: 'Today so far…', click: () => say(recapText(stats(), { final: false }), { mood: 'happy', duration: 15000, key: 'recap' }) },
     { label: 'Reminders', submenu: reminderItems },
     { label: 'Calendar', submenu: meetingMenu() },
+    { label: 'Pet', submenu: petMenu() },
     { type: 'separator' },
     {
       label: 'Outfit',
@@ -1385,6 +1470,7 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     send('config', publicConfig());
+    sendPet();
     setMode(config.startMode);
     send('night', isNight());
     say(pick([`Hi${name()}! I'm here 👋`, 'Boing! Hello!', 'Ready when you are ✨']), { mood: 'excited', duration: 4000 });
@@ -1407,6 +1493,7 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
   loadConfig();
   state = { ...state, ...readJson(files().state, {}) };
+  pet = petLife.loadPet(state.pet);
   reminders = readJson(files().reminders, []);
   try {
     fs.watch(files().config, { persistent: false }, () => setTimeout(loadConfig, 100));
