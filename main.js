@@ -9,6 +9,7 @@ const { parseWhen, formatWhen, toMinutes } = require('./when');
 const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
 const { currentActivity } = require('./activity');
 const { askClaude } = require('./ask');
+const { fetchMeetings } = require('./calendar');
 
 // ---------------------------------------------------------------------------
 // Geometry: the window is a small transparent box. The ball sits at the bottom
@@ -44,6 +45,8 @@ const DEFAULT_CONFIG = {
   typingCheers: true,
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
+  calendars: [], // secret iCal (.ics) addresses, e.g. from Google Calendar
+  meetingMinutesBefore: 5, // 0 only tells you when a meeting starts
   idleChatter: true,
   systemNotifications: true, // also show an OS notification for Claude alerts and reminders
   sounds: true,
@@ -101,6 +104,16 @@ function loadConfig() {
   if (config.color === '#6ec6ff') config.color = DEFAULT_CONFIG.color;
   if (win) win.webContents.send('config', publicConfig());
   registerShortcut();
+  const cals = JSON.stringify(config.calendars || []);
+  if (cals !== loadedCalendars) {
+    loadedCalendars = cals;
+    refreshMeetings();
+  }
+}
+
+function saveConfigKey(key, value) {
+  writeJson(files().config, { ...readJson(files().config, {}), [key]: value });
+  config[key] = value;
 }
 
 function publicConfig() {
@@ -243,6 +256,14 @@ function tick() {
   }
   // "still" and "sleep" stay exactly where you put them.
 
+  // If anything ever turned the position into NaN/Infinity (a screen being
+  // unplugged, a glitchy drag), start over in the corner instead of crashing.
+  if (![pos.x, pos.y].every(Number.isFinite)) {
+    homePosition();
+    drag = null;
+  }
+  if (![vel.x, vel.y].every(Number.isFinite)) vel = { x: 0, y: 0 };
+
   const rx = Math.round(pos.x);
   const ry = Math.round(pos.y);
   const [wx, wy] = win.getPosition();
@@ -300,9 +321,9 @@ function pick(list) {
 
 // mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking
 function say(text, {
-  mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false,
+  mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false, link = '',
 } = {}) {
-  send('say', { text, mood, duration, sticky, key, sound, urgent });
+  send('say', { text, mood, duration, sticky, key, sound, urgent, link });
   if (notify && config.systemNotifications && Notification.isSupported()) {
     new Notification({ title: 'Buddy', body: text, silent: true }).show();
   }
@@ -533,7 +554,7 @@ async function ask(question) {
   if (res.ok) {
     say(res.text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
   } else if (res.missing) {
-    say('I can\'t find Claude Code on this computer 😢 Install it, then ask me again.',
+    say('I can\'t find Claude Code on this computer 😢 In Terminal, check that "claude --version" works. If it doesn\'t, install it with: curl -fsSL https://claude.ai/install.sh | bash',
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
@@ -552,6 +573,121 @@ function registerShortcut() {
   } catch (e) {
     console.error('bad shortcut:', config.askShortcut, e.message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Meetings from your calendar(s)
+
+let loadedCalendars = '';
+let meetings = [];
+let calendarError = '';
+const announced = new Map(); // "<meeting id>:soon|now" -> when we said it
+
+async function refreshMeetings() {
+  const urls = (config.calendars || []).filter(Boolean);
+  if (!urls.length) {
+    meetings = [];
+    refreshTray();
+    return;
+  }
+  const from = new Date(Date.now() - 60 * 60000);
+  const to = new Date(Date.now() + 36 * 3600000);
+  const all = [];
+  const errors = [];
+  await Promise.all(urls.map(async (u) => {
+    try {
+      all.push(...await fetchMeetings(u, from, to));
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }));
+  // If every calendar failed (offline?), keep what we had.
+  if (all.length || !errors.length) meetings = all.sort((a, b) => a.start - b.start);
+  calendarError = errors[0] || '';
+  refreshTray();
+}
+
+function hhmm(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function checkMeetings() {
+  const now = Date.now();
+  const lead = Math.max(0, Number(config.meetingMinutesBefore) || 0) * 60000;
+  for (const m of meetings) {
+    const key = `meet:${m.id}`;
+    if (lead && now >= m.start - lead && now < m.start - 30000 && !announced.has(`${m.id}:soon`)) {
+      announced.set(`${m.id}:soon`, now);
+      const mins = Math.max(1, Math.round((m.start - now) / 60000));
+      say(`📅 ${m.title} in ${mins} min${mins === 1 ? '' : 's'} (${hhmm(m.start)})`,
+        { mood: 'alert', sticky: true, sound: 'alert', key, notify: true, link: m.link });
+    } else if (now >= m.start - 30000 && now < m.start + 5 * 60000 && !announced.has(`${m.id}:now`)) {
+      announced.set(`${m.id}:now`, now);
+      announced.set(`${m.id}:soon`, now);
+      say(`📅 ${m.title} is starting now!`,
+        { mood: 'alert', sticky: true, sound: 'alert', key, notify: true, link: m.link });
+    }
+  }
+  for (const [k, t] of announced) if (now - t > 24 * 3600000) announced.delete(k);
+}
+
+function meetingMenu() {
+  const items = [];
+  if (!(config.calendars || []).length) {
+    items.push({ label: 'Connect Google Calendar…', click: () => openForm('calendar') });
+    return items;
+  }
+  const upcoming = meetings.filter((m) => m.end > Date.now()).slice(0, 10);
+  if (!upcoming.length) items.push({ label: calendarError ? `Couldn't load: ${calendarError}`.slice(0, 70) : 'Nothing coming up 🎉', enabled: false });
+  for (const m of upcoming) {
+    const day = new Date(m.start).toDateString() === new Date().toDateString() ? '' : 'tomorrow ';
+    items.push({
+      label: `${day}${hhmm(m.start)}  ${m.title}${m.link ? '  📹' : ''}`.slice(0, 70),
+      enabled: !!m.link,
+      click: () => openLink(m.link),
+    });
+  }
+  items.push(
+    { type: 'separator' },
+    { label: 'Refresh', click: () => refreshMeetings() },
+    { label: 'Connect another calendar…', click: () => openForm('calendar') },
+    {
+      label: 'Disconnect calendars',
+      click: () => {
+        saveConfigKey('calendars', []);
+        meetings = [];
+        refreshTray();
+        say('Okay, calendars disconnected 👋', { duration: 4000 });
+      },
+    },
+  );
+  return items;
+}
+
+function openLink(url) {
+  // Only real web links, never file:// or anything else.
+  if (/^https:\/\//i.test(url || '')) shell.openExternal(url);
+}
+
+async function addCalendar(url) {
+  const u = String(url || '').trim();
+  if (!/^(https?|webcal):\/\//i.test(u)) return { ok: false, error: 'That should start with https://' };
+  let found;
+  try {
+    found = await fetchMeetings(u, new Date(), new Date(Date.now() + 36 * 3600000));
+  } catch (e) {
+    return { ok: false, error: `Hmm, ${e.message}` };
+  }
+  const list = (config.calendars || []).filter((x) => x !== u).concat(u);
+  saveConfigKey('calendars', list);
+  loadedCalendars = JSON.stringify(list);
+  formOpen = false;
+  await refreshMeetings();
+  const next = found[0];
+  say(next ? `Calendar connected! Next up: ${next.title} at ${hhmm(next.start)} 📅` : 'Calendar connected! Nothing on it in the next day 🎉',
+    { mood: 'excited', duration: 7000, sound: 'happy' });
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -693,6 +829,7 @@ function menuTemplate() {
     },
     { label: 'Add reminder…', click: () => openForm('remind') },
     { label: 'Reminders', submenu: reminderItems },
+    { label: 'Meetings', submenu: meetingMenu() },
     { type: 'separator' },
     {
       label: 'Sounds', type: 'checkbox', checked: config.sounds,
@@ -755,9 +892,9 @@ function refreshTray() {
 // ---------------------------------------------------------------------------
 // IPC from the renderer
 
-ipcMain.on('drag-start', (_e, { x, y }) => {
+ipcMain.on('drag-start', (_e, { x, y } = {}) => {
   const c = screen.getCursorScreenPoint();
-  drag = { offX: x, offY: y, startX: c.x, startY: c.y, moved: false, samples: [] };
+  drag = { offX: Number(x) || BX, offY: Number(y) || BY, startX: c.x, startY: c.y, moved: false, samples: [] };
 });
 
 ipcMain.on('drag-end', () => {
@@ -794,6 +931,8 @@ ipcMain.on('form-closed', () => {
   formOpen = false;
 });
 ipcMain.on('open-ask', () => openForm('ask'));
+ipcMain.on('open-link', (_e, url) => openLink(url));
+ipcMain.handle('add-calendar', (_e, url) => addCalendar(url));
 ipcMain.on('ask', (_e, q) => {
   formOpen = false;
   ask(q);
@@ -808,9 +947,28 @@ ipcMain.handle('add-reminder', (_e, { text, when }) => {
 
 // ---------------------------------------------------------------------------
 
-function createWindow() {
+// Bottom-right corner of the main screen.
+function homePosition() {
   const wa = screen.getPrimaryDisplay().workArea;
   pos = { x: wa.x + wa.width - W - 80, y: wa.y + wa.height - H };
+  vel = { x: 0, y: 0 };
+}
+
+// One hiccup must never turn into an error popup 60 times a second.
+let tickErrorShown = false;
+function safeTick() {
+  try {
+    tick();
+  } catch (e) {
+    if (!tickErrorShown) console.error('tick:', e);
+    tickErrorShown = true;
+    homePosition();
+    drag = null;
+  }
+}
+
+function createWindow() {
+  homePosition();
 
   win = new BrowserWindow({
     width: W,
@@ -846,10 +1004,12 @@ function createWindow() {
     setTimeout(scheduleCheck, 3000);
   });
 
-  setInterval(tick, 16);
+  setInterval(safeTick, 16);
   setInterval(scheduleCheck, 20000);
   setInterval(checkTyping, 500);
   setInterval(checkDistraction, 15000);
+  setInterval(checkMeetings, 15000);
+  setInterval(refreshMeetings, 10 * 60000);
 }
 
 app.whenReady().then(() => {
@@ -867,7 +1027,10 @@ app.whenReady().then(() => {
   startServer();
   registerShortcut();
 
-  powerMonitor.on('resume', () => setTimeout(scheduleCheck, 2000));
+  powerMonitor.on('resume', () => {
+    setTimeout(scheduleCheck, 2000);
+    setTimeout(refreshMeetings, 5000); // the network needs a moment after waking up
+  });
   powerMonitor.on('unlock-screen', () => setTimeout(scheduleCheck, 2000));
 });
 
