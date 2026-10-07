@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, screen, ipcMain, Menu, Notification, powerMonitor, shell, Tray, nativeImage,
-  globalShortcut,
+  globalShortcut, net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,9 @@ const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
 const { currentActivity, macIdleMs } = require('./activity');
 const { askClaude, cleanAnswer } = require('./ask');
 const { askLocal } = require('./local-ai');
+const {
+  readBattery, BatteryWatcher, NetWatcher, isOnline,
+} = require('./power');
 const { fetchMeetings } = require('./calendar');
 const {
   findHelper, appleMeetings, appleReminders, mergeMeetings, AccessDenied,
@@ -39,6 +42,9 @@ const DEFAULT_CONFIG = {
   bedtimeRepeatMinutes: 30,
   breakEveryMinutes: 90, // 0 disables stretch-break nudges
   waterEveryMinutes: 60, // 0 disables water nudges
+  battery: true, // warn at 20%, 10% and 5% (false turns it off)
+  batteryFull: true, // say when it's fully charged, so you can unplug
+  internet: true, // say when the internet drops out and comes back
   distraction: { // set to false to turn off
     afterMinutes: 30,
     repeatMinutes: 15,
@@ -901,6 +907,48 @@ async function addCalendar(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Battery and internet (no AI involved: just the Mac's own reports)
+
+const battery = new BatteryWatcher();
+const network = new NetWatcher();
+let netQuietUntil = 0; // after waking up, Wi-Fi needs a moment to reconnect
+
+async function checkBattery() {
+  if (config.battery === false) return;
+  const e = battery.update(await readBattery());
+  if (!e) return;
+  if (e.type === 'low') {
+    if (e.level >= 20) {
+      say(`Battery at ${e.percent}%. Maybe find your charger soon? 🔋`, { mood: 'sleepy', duration: 10000, key: 'battery' });
+    } else if (e.level >= 10) {
+      say(`I'm at ${e.percent}%, plug me in! 🔌`, { mood: 'sad', sticky: true, sound: 'alert', key: 'battery', notify: true });
+    } else {
+      say(`Only ${e.percent}% left!! Plug in now or your Mac will fall asleep 😵🔌`,
+        { mood: 'alert', sticky: true, sound: 'alert', key: 'battery', notify: true });
+    }
+  } else if (e.type === 'plugged') {
+    send('dismiss', 'battery');
+    say(pick(['Ahh, power! ⚡ Thank you!', 'Mmm, electricity 😋⚡', 'Charging! I feel better already ⚡']),
+      { mood: 'love', duration: 5000, sound: 'happy', key: 'battery' });
+  } else if (e.type === 'full' && config.batteryFull !== false) {
+    say('Fully charged! 🔋 You can unplug me now.', { mood: 'happy', duration: 10000, key: 'battery' });
+  }
+}
+
+async function checkInternet() {
+  if (config.internet === false || Date.now() < netQuietUntil) return;
+  const e = network.update(await isOnline(net));
+  if (e === 'offline') {
+    say(pick(['Wi-Fi is gone 📡', 'Uh oh, no internet 📡', 'The internet ran away 📡💨']),
+      { mood: 'surprised', sticky: true, key: 'internet' });
+  } else if (e === 'online') {
+    send('dismiss', 'internet');
+    say(pick(['Back online! 🎉', 'Internet\'s back 🎉', 'We\'re connected again 📶✨']),
+      { mood: 'excited', duration: 5000, sound: 'happy', key: 'internet' });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Reminders
 
 function addReminder(text, when) {
@@ -1250,6 +1298,9 @@ function createWindow() {
   setInterval(checkTyping, 500);
   setInterval(checkDistraction, 15000);
   setInterval(checkMeetings, 15000);
+  setInterval(checkBattery, 30000);
+  setInterval(checkInternet, 10000);
+  setTimeout(checkBattery, 5000);
   setInterval(refreshMeetings, 10 * 60000);
   setInterval(refreshApple, 2 * 60000);
 }
@@ -1269,7 +1320,13 @@ app.whenReady().then(() => {
   startServer();
   registerShortcut();
 
+  // React right away when the charger goes in or out.
+  powerMonitor.on('on-ac', () => setTimeout(checkBattery, 1500));
+  powerMonitor.on('on-battery', () => setTimeout(checkBattery, 1500));
   powerMonitor.on('resume', () => {
+    netQuietUntil = Date.now() + 60000;
+    network.reset();
+    setTimeout(checkBattery, 3000);
     setTimeout(scheduleCheck, 2000);
     setTimeout(refreshMeetings, 5000); // the network needs a moment after waking up
     setTimeout(refreshApple, 3000);

@@ -7,6 +7,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **reminds you to eat** at lunch and dinner time
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
 - **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
+- **watches your battery and internet**: "I'm at 10%, plug me in! 🔌", "Wi-Fi is gone 📡", "Back online! 🎉"
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
 - **reminds you of meetings** from Apple Calendar or Google Calendar 5 minutes before, with a **Join call** button, and pops up your **Apple Reminders** when they're due
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
@@ -181,6 +182,9 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "bedtimeRepeatMinutes": 30,
   "breakEveryMinutes": 90,
   "waterEveryMinutes": 60,
+  "battery": true,
+  "batteryFull": true,
+  "internet": true,
   "distraction": {
     "afterMinutes": 30,
     "repeatMinutes": 15,
@@ -205,6 +209,9 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 
 - `name`: what Buddy calls you ("Good morning, Sam!").
 - Set `lunch`, `dinner` or `bedtime` to `""` to turn that nudge off, and `breakEveryMinutes` or `waterEveryMinutes` to `0` to turn off stretch or water breaks.
+- Battery: a gentle note at 20%, a sticky "plug me in!" at 10% and an urgent one at 5% (only while unplugged), a thank-you when you plug in, and "fully charged" at 100%. Turn these off with `"battery": false` or just the last one with `"batteryFull": false`.
+- Internet: Buddy waits about 20 seconds before saying the internet is gone, so short blips stay quiet. To check, it loads Apple's tiny "is the internet working" page (the same one your Mac uses itself) every 10 seconds. Turn it off with `"internet": false`.
+- Only *Ask me anything* uses AI. Everything else Buddy does runs on your computer and uses no tokens.
 - `askShortcut`: the keyboard shortcut for *Ask me anything*. Set it to `""` to turn it off. `askModel`: for example `"haiku"` for faster answers; leave it empty to use your Claude Code default.
 - New settings from updates are added to your file automatically, so you can find them there.
 - After `bedtime`, Buddy also looks sleepy.
@@ -225,6 +232,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
 | `apple.js`, `helpers/eventkit.swift` | Apple Calendar & Reminders (the Swift helper reads them through macOS's EventKit) |
