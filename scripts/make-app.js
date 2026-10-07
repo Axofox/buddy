@@ -58,8 +58,19 @@ async function main() {
     return;
   }
 
-  // Applications is usually writable on a personal Mac; otherwise use ~/Applications.
   const built = path.join(outDir, 'Buddy.app');
+
+  // Electron ships signed with Apple's "hardened runtime". Under it, macOS
+  // silently refuses calendar access (and browser automation) without special
+  // entitlements, never even asking. Our Info.plist edits break that signature
+  // anyway, so re-sign the whole app ad hoc for this Mac, without hardened runtime.
+  try {
+    execFileSync('codesign', ['--force', '--deep', '--sign', '-', built], { stdio: 'pipe' });
+  } catch (e) {
+    console.warn('⚠️  Could not sign Buddy, so macOS may not ask for calendar access:', String(e.stderr || e.message).trim());
+  }
+
+  // Applications is usually writable on a personal Mac; otherwise use ~/Applications.
   let target = '/Applications';
   try {
     fs.accessSync(target, fs.constants.W_OK);
