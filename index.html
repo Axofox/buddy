@@ -42,13 +42,23 @@
     <div id="ball-wrap">
       <div id="ball-squash">
         <svg id="ball" viewBox="0 0 100 100" width="48" height="48">
-          <path class="body" d="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z">
-            <!-- the tips of the flame sway like hair; faster while you type -->
-            <animate id="sway" attributeName="d" dur="2.6s" repeatCount="indefinite"
-              calcMode="spline" keyTimes="0;0.25;0.5;0.75;1"
-              keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
-              values="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 19.25 33 17.5 24.5 C25.25 30 31 34 33 39 C35 25 45 13 56 1.5 C58 13 60 21 62 30 C66 24 68.5 18 72 11.5 C75.5 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 22 33 23 26 C28 30 31 34 33 39 C35 25 42.25 13 50.5 3 C55.25 13 60 21 62 30 C66 24 71.75 18 78.5 13 C78.75 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 23 33 25 24 C29 30 31 34 33 39 C35 25 41 13 48 1 C54 13 60 21 62 30 C66 24 71 18 77 11 C78 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z"/>
-          </path>
+          <defs>
+            <!-- warm, golden glow toward the tips -->
+            <linearGradient id="tipglow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffd36b" stop-opacity="0.8"/>
+              <stop offset="0.2" stop-color="#ffb347" stop-opacity="0.45"/>
+              <stop offset="0.46" stop-color="#ff9a3c" stop-opacity="0"/>
+            </linearGradient>
+            <path id="flame" d="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z">
+              <!-- the tips of the flame sway like hair; faster while you type -->
+              <animate id="sway" attributeName="d" dur="2.6s" repeatCount="indefinite"
+                calcMode="spline" keyTimes="0;0.25;0.5;0.75;1"
+                keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
+                values="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 19.25 33 17.5 24.5 C25.25 30 31 34 33 39 C35 25 45 13 56 1.5 C58 13 60 21 62 30 C66 24 68.5 18 72 11.5 C75.5 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 22 33 23 26 C28 30 31 34 33 39 C35 25 42.25 13 50.5 3 C55.25 13 60 21 62 30 C66 24 71.75 18 78.5 13 C78.75 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 23 33 25 24 C29 30 31 34 33 39 C35 25 41 13 48 1 C54 13 60 21 62 30 C66 24 71 18 77 11 C78 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z"/>
+            </path>
+          </defs>
+          <use href="#flame" class="body"/>
+          <use href="#flame" class="tips"/>
 
           <!-- open eyes: white dots with pupils that follow the cursor -->
           <g id="eyes">
@@ -83,6 +93,44 @@
           <path class="mouth m-sad" d="M45 69 Q50 64 55 69"/>
           <path class="mouth m-sly" d="M45 67 Q51 70 56 65"/>
           <path class="mouth m-thinking" d="M46 69 L54 67"/>
+          <!-- joy: a big round "wooo!" mouth -->
+          <g class="mouth m-joy">
+            <path class="filled" d="M41 64 Q42 56 50 56 Q59 56 59 65 Q59 76 50 77 Q41 76 41 64 Z"/>
+            <path d="M47 67 q1 -4 5 -3 q3 2 0 5 q-3 2 -4 -1" fill="none" stroke="#ff7a8a" stroke-width="2.4" stroke-linecap="round"/>
+          </g>
+          <!-- angry: lopsided open mouth and frowning brows -->
+          <path class="mouth m-angry filled" d="M43 75 Q43 66 51 66 Q58 66 58 73 Q55 71 51 72 Q46 72 43 75 Z"/>
+          <g id="brows" class="feature"><path d="M22 48 L42 55"/><path d="M78 48 L58 55"/></g>
+
+          <!-- holiday outfits (only one shows at a time) -->
+          <g id="outfit-halloween" class="outfit">
+            <g transform="translate(96 82)">
+              <path d="M-1 -12 q1 -6 5 -7" fill="none" stroke="#3f6b2a" stroke-width="3" stroke-linecap="round"/>
+              <ellipse rx="15" ry="12" fill="#f28a1e"/>
+              <ellipse rx="7" ry="12" fill="#e0761a"/>
+              <ellipse rx="2.5" ry="12" fill="#f5973a"/>
+              <path d="M-9 -3 l3 -4 3 4 z M3 -3 l3 -4 3 4 z" fill="#3b2410"/>
+              <path d="M-8 3 q8 7 16 0 l-3 0 -2 2 -2 -2 -2 2 -2 -2 z" fill="#3b2410"/>
+            </g>
+          </g>
+          <g id="outfit-christmas" class="outfit">
+            <path d="M34 22 Q40 -4 66 -10 Q78 -12 80 0 Q70 -4 64 4 Q60 12 68 22 Z" fill="#e23b3b"/>
+            <rect x="30" y="18" width="42" height="9" rx="4.5" fill="#fff"/>
+            <circle cx="80" cy="1" r="5.5" fill="#fff"/>
+          </g>
+          <g id="outfit-newyear" class="outfit">
+            <path d="M40 22 L56 -16 L68 20 Z" fill="#7b5cff"/>
+            <path d="M47 6 L60 2 M44 14 L64 9 M51 -3 L58 -6" stroke="#ffd36b" stroke-width="3" stroke-linecap="round"/>
+            <rect x="38" y="18" width="32" height="6" rx="3" fill="#ffd36b"/>
+            <circle cx="56" cy="-17" r="4" fill="#ff5fa2"/>
+            <rect x="10" y="10" width="4" height="4" fill="#ffd36b" transform="rotate(20 12 12)"/>
+            <rect x="86" y="24" width="4" height="4" fill="#5fd3ff" transform="rotate(-15 88 26)"/>
+            <rect x="92" y="6" width="3" height="3" fill="#ff5fa2"/>
+          </g>
+          <g id="outfit-valentine" class="outfit">
+            <path d="M92 76 l-9 -9 a5 5 0 0 1 9 -6 a5 5 0 0 1 9 6 z" fill="#ff4d6d"/>
+            <path d="M8 44 l-5 -5 a3 3 0 0 1 5 -3.5 a3 3 0 0 1 5 3.5 z" fill="#ff8fa3"/>
+          </g>
 
           <!-- extras -->
           <text id="exclaim" class="feature" x="84" y="30">!</text>
