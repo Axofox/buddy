@@ -41,6 +41,7 @@
     <div id="sparks"></div>
     <div id="ball-wrap">
       <div id="ball-squash">
+        <div id="grow">
         <svg id="ball" viewBox="0 0 100 100" width="48" height="48">
           <defs>
             <!-- warm, golden glow toward the tips -->
@@ -57,9 +58,13 @@
                 values="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 19.25 33 17.5 24.5 C25.25 30 31 34 33 39 C35 25 45 13 56 1.5 C58 13 60 21 62 30 C66 24 68.5 18 72 11.5 C75.5 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 22 33 23 26 C28 30 31 34 33 39 C35 25 42.25 13 50.5 3 C55.25 13 60 21 62 30 C66 24 71.75 18 78.5 13 C78.75 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 23 33 25 24 C29 30 31 34 33 39 C35 25 41 13 48 1 C54 13 60 21 62 30 C66 24 71 18 77 11 C78 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z;M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39 C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38 C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92 Q32 98 27 92 Q21 98 18 90 Z"/>
             </path>
           </defs>
+          <!-- the pet's body; its shape changes as it grows (shapes.js) -->
+          <g id="extra-back"></g>
           <use href="#flame" class="body"/>
           <use href="#flame" class="tips"/>
+          <g id="extra-front"></g>
 
+          <g id="face">
           <!-- open eyes: white dots with pupils that follow the cursor -->
           <g id="eyes">
             <g class="eye" transform="translate(33 64)">
@@ -101,6 +106,7 @@
           <!-- angry: lopsided open mouth and frowning brows -->
           <path class="mouth m-angry filled" d="M43 75 Q43 66 51 66 Q58 66 58 73 Q55 71 51 72 Q46 72 43 75 Z"/>
           <g id="brows" class="feature"><path d="M22 48 L42 55"/><path d="M78 48 L58 55"/></g>
+          </g>
 
           <!-- holiday outfits (only one shows at a time) -->
           <g id="outfit-halloween" class="outfit">
@@ -113,6 +119,8 @@
               <path d="M-8 3 q8 7 16 0 l-3 0 -2 2 -2 -2 -2 2 -2 -2 z" fill="#3b2410"/>
             </g>
           </g>
+          <!-- things that sit on the head move with its height -->
+          <g id="head">
           <g id="outfit-christmas" class="outfit">
             <path d="M34 22 Q40 -4 66 -10 Q78 -12 80 0 Q70 -4 64 4 Q60 12 68 22 Z" fill="#e23b3b"/>
             <rect x="30" y="18" width="42" height="9" rx="4.5" fill="#fff"/>
@@ -127,6 +135,13 @@
             <rect x="86" y="24" width="4" height="4" fill="#5fd3ff" transform="rotate(-15 88 26)"/>
             <rect x="92" y="6" width="3" height="3" fill="#ff5fa2"/>
           </g>
+          <!-- sleeping: a subtle zzz drifting up above the head -->
+          <g id="zzz" class="feature">
+            <text class="z z1" x="56" y="-2">z</text>
+            <text class="z z2" x="63" y="-11">z</text>
+            <text class="z z3" x="71" y="-21">z</text>
+          </g>
+          </g>
           <g id="outfit-valentine" class="outfit">
             <path d="M92 76 l-9 -9 a5 5 0 0 1 9 -6 a5 5 0 0 1 9 6 z" fill="#ff4d6d"/>
             <path d="M8 44 l-5 -5 a3 3 0 0 1 5 -3.5 a3 3 0 0 1 5 3.5 z" fill="#ff8fa3"/>
@@ -134,11 +149,12 @@
 
           <!-- extras -->
           <text id="exclaim" class="feature" x="84" y="30">!</text>
-          <g id="zzz" class="feature"><text x="80" y="34">z</text><text x="90" y="22">z</text></g>
         </svg>
+        </div>
       </div>
     </div>
   </div>
+  <script src="shapes.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

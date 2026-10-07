@@ -14,6 +14,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
 - **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
+- **grows with you**: it starts as a tiny dot and grows through 5 stages as you look after yourself, then transforms into a leaf, a little monster, a frog or a cat (see below)
 - **dresses up for holidays**: a pumpkin friend in October, a Santa hat in December, a party hat at New Year, hearts for Valentine's (right-click → **Outfit** to pick one or turn them off)
 - bounces around, **follows your mouse** if you ask, and its eyes always watch your cursor
 
@@ -83,6 +84,20 @@ Buddy reads your calendar through its private iCal link. You don't need a Google
 Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 5 mins (10:00)"*. If the meeting has a Google Meet, Zoom, Teams, Webex or Whereby link, it also shows a **Join call** button. When the meeting starts, it reminds you again. Right-click → **Calendar** lists what's coming up (click one to join), and lets you add more calendar links or disconnect them. If the same calendar is also in Apple Calendar, each meeting still only shows once.
 
 Buddy checks your calendar every 10 minutes. All-day events and cancelled meetings are skipped. Keep the secret address private: anyone who has it can see your calendar. Buddy stores it only in your settings file. Other calendars that offer an `.ics` link (Outlook, iCloud, Fastmail…) work too. Change the warning time with `meetingMinutesBefore`.
+
+### The growing pet
+
+Buddy starts as a tiny dot and collects ✨ sparks whenever you take care of yourself: 💧 water +3, 🧘 a break +3, 🔥 a typing streak +2, 📅 a meeting +2, ☀️ good morning +2, ⏰ a reminder or Claude finishing a task +1.
+
+| Life | Stages |
+|---|---|
+| 🔥 Fire | Dot → Spark → Kindle → Flame → Blaze |
+| 🌱 Leaf | Dot → Seed → Sprout → Leafy → Blossom |
+| 👾 Little monster | Dot → Egg → Hatchling → Monster → Big monster |
+| 🐸 Frog | Dot → Frogspawn → Tadpole → Froglet → Frog |
+| 🐱 Cat | Dot → Kitten ball → Kitten → Cat → Big cat |
+
+It grows at 15, 50, 120 and 250 sparks. At 450 it's ready to transform: right-click → **Pet** → **Grow into…** and pick its next life, which starts again from a dot. **Pet** also shows its progress, explains how to earn sparks, and has **Show me all my looks** (a little slideshow). Prefer the classic flame? **Stay a classic flame** turns growing off (`"pet": false`).
 
 ### Tell it how you feel
 
@@ -199,6 +214,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
     "apps": []
   },
   "typingCheers": true,
+  "pet": true,
   "outfit": "auto",
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
@@ -239,6 +255,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `pet.js`, `shapes.js` | The growing pet: sparks and stages (tested), and how each stage looks |
 | `feelings.js` | Spots joy, anger and sadness in what you type to Buddy (tested) |
 | `day.js` | Today's numbers and the bedtime recap (tested) |
 | `power.js` | Battery and internet watching (tested) |

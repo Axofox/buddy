@@ -41,6 +41,35 @@ html, body {
 
 #ball { overflow: visible; display: block; }
 
+/* ---------- the growing pet ---------- */
+#grow {
+  width: 100%;
+  height: 100%;
+  transform: scale(var(--grow, 1));
+  transform-origin: 50% 100%;
+  transition: transform 1.2s cubic-bezier(.3, 1.5, .5, 1);
+}
+/* the golden tips only suit fire */
+body:not([data-life="flame"]) .tips { display: none; }
+/* leaves sway gently; creatures breathe */
+[data-anim="sway"] #grow { animation: leafsway 3.2s ease-in-out infinite alternate; }
+[data-anim="breathe"] #grow { animation: breathe-grow 3s ease-in-out infinite; }
+@keyframes leafsway {
+  from { transform: scale(var(--grow, 1)) rotate(-3deg); }
+  to { transform: scale(var(--grow, 1)) rotate(3deg); }
+}
+@keyframes breathe-grow {
+  0%, 100% { transform: scale(var(--grow, 1)); }
+  50% { transform: scale(calc(var(--grow, 1) * 1.03), calc(var(--grow, 1) * 0.97)); }
+}
+/* tails swish, tadpole tails wiggle */
+.tail { transform-box: fill-box; transform-origin: 0% 80%; animation: swish 1.8s ease-in-out infinite alternate; }
+.tail.wiggle { transform-origin: 0% 50%; animation-duration: 0.45s; }
+@keyframes swish {
+  from { transform: rotate(-9deg); }
+  to { transform: rotate(9deg); }
+}
+
 .body {
   fill: var(--body);
   transition: fill 0.4s;
@@ -72,7 +101,15 @@ html, body {
 .filled, .mouth.filled { fill: var(--ink); }
 #eyes-heart path { fill: #ff4d6d; stroke: none; }
 #exclaim { font: 900 34px system-ui, sans-serif; fill: #ff5a36; }
-#zzz text { font: 700 20px system-ui, sans-serif; fill: var(--ink); opacity: 0.7; }
+/* sleeping: small, soft z's that drift up one after another */
+#zzz .z { font: 700 11px system-ui, sans-serif; fill: var(--ink); opacity: 0; animation: zfloat 3.6s ease-out infinite; }
+#zzz .z2 { font-size: 14px; animation-delay: 1.2s; }
+#zzz .z3 { font-size: 17px; animation-delay: 2.4s; }
+@keyframes zfloat {
+  0% { opacity: 0; transform: translate(0, 4px); }
+  25% { opacity: 0.45; }
+  100% { opacity: 0; transform: translate(4px, -8px); }
+}
 
 /* moods: which eyes and mouth to show */
 [data-mood="happy"] .m-happy,
@@ -140,7 +177,7 @@ html, body {
 /* body animations that don't need the window to move */
 [data-mood="alert"] #ball-wrap { animation: jiggle 0.5s ease-in-out infinite; }
 [data-mood="sleep"] #ball-wrap { animation: breathe 3.2s ease-in-out infinite; }
-[data-mood="sleep"] #zzz { animation: float 2.4s ease-in-out infinite; }
+
 #ball-wrap.poke { animation: poke 0.45s ease-out; }
 /* ---------- typing: the flame grows with how fast you type ---------- */
 #ball { transform-origin: 50% 100%; --heat: 1; transition: filter 0.6s; }
@@ -193,10 +230,6 @@ body[data-typing="3"] .pupil { transform: translate(0, 3.5px); }
 @keyframes breathe {
   0%, 100% { transform: scale(1, 1); }
   50% { transform: scale(1.04, 0.96); }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); opacity: 0.4; }
-  50% { transform: translateY(-3px); opacity: 0.9; }
 }
 @keyframes poke {
   0% { transform: scale(1.12, 0.86); }
