@@ -24,61 +24,39 @@
 
     <div id="ball-wrap">
       <div id="ball-squash">
-        <svg id="ball" viewBox="0 0 100 100" width="96" height="96">
-          <defs>
-            <radialGradient id="shine" cx="35%" cy="30%" r="70%">
-              <stop offset="0%" stop-color="#fff" stop-opacity="0.55"/>
-              <stop offset="45%" stop-color="#fff" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <ellipse class="shadow" cx="50" cy="97" rx="30" ry="3"/>
+        <svg id="ball" viewBox="0 0 100 100" width="48" height="48">
           <circle class="body" cx="50" cy="50" r="46"/>
-          <circle cx="50" cy="50" r="46" fill="url(#shine)"/>
 
-          <ellipse class="cheek" cx="24" cy="60" rx="7" ry="4"/>
-          <ellipse class="cheek" cx="76" cy="60" rx="7" ry="4"/>
-
-          <!-- open eyes -->
+          <!-- open eyes: plain dots that follow the cursor -->
           <g id="eyes">
-            <g class="eye" transform="translate(35 42)">
-              <ellipse class="white" rx="10" ry="12"/>
-              <g class="pupil"><circle r="5.5"/><circle class="glint" cx="2" cy="-2.5" r="1.8"/></g>
-            </g>
-            <g class="eye" transform="translate(65 42)">
-              <ellipse class="white" rx="10" ry="12"/>
-              <g class="pupil"><circle r="5.5"/><circle class="glint" cx="2" cy="-2.5" r="1.8"/></g>
-            </g>
+            <g class="eye" transform="translate(35 44)"><g class="pupil"><ellipse rx="6" ry="8"/></g></g>
+            <g class="eye" transform="translate(65 44)"><g class="pupil"><ellipse rx="6" ry="8"/></g></g>
           </g>
-          <!-- closed / happy-squint eyes -->
           <g id="eyes-closed" class="feature">
-            <path d="M26 44 Q35 49 44 44"/><path d="M56 44 Q65 49 74 44"/>
+            <path d="M27 46 Q35 51 43 46"/><path d="M57 46 Q65 51 73 46"/>
           </g>
           <g id="eyes-squint" class="feature">
-            <path d="M27 45 Q35 36 43 45"/><path d="M57 45 Q65 36 73 45"/>
+            <path d="M28 47 Q35 38 42 47"/><path d="M58 47 Q65 38 72 47"/>
           </g>
           <g id="eyes-heart" class="feature">
-            <path d="M35 50 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
-            <path d="M65 50 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
+            <path d="M35 52 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
+            <path d="M65 52 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
           </g>
 
           <!-- mouths -->
-          <path class="mouth m-happy" d="M40 64 Q50 73 60 64"/>
-          <path class="mouth m-excited filled" d="M37 62 Q50 82 63 62 Z"/>
+          <path class="mouth m-happy" d="M42 65 Q50 72 58 65"/>
+          <path class="mouth m-excited filled" d="M39 63 Q50 80 61 63 Z"/>
           <ellipse class="mouth m-alert filled" cx="50" cy="68" rx="5" ry="6"/>
           <ellipse class="mouth m-surprised filled" cx="50" cy="68" rx="4" ry="5"/>
-          <path class="mouth m-sleepy" d="M44 67 L56 67"/>
+          <path class="mouth m-sleepy" d="M45 67 L55 67"/>
           <ellipse class="mouth m-sleep filled" cx="50" cy="67" rx="3" ry="2.5"/>
-          <g class="mouth m-hungry">
-            <path class="filled" d="M38 62 Q50 80 62 62 Z"/>
-            <path class="tongue" d="M45 69 Q50 76 55 69 Z"/>
-            <path class="drool" d="M60 66 q2 6 0 8 q-2 -2 0 -8"/>
-          </g>
-          <path class="mouth m-love" d="M40 63 Q50 74 60 63"/>
-          <path class="mouth m-sad" d="M40 70 Q50 62 60 70"/>
+          <path class="mouth m-hungry filled" d="M40 63 Q50 79 60 63 Z"/>
+          <path class="mouth m-love" d="M42 64 Q50 73 58 64"/>
+          <path class="mouth m-sad" d="M42 70 Q50 63 58 70"/>
 
           <!-- extras -->
-          <text id="exclaim" class="feature" x="82" y="18">!</text>
-          <g id="zzz" class="feature"><text x="78" y="22">z</text><text x="86" y="12">z</text></g>
+          <text id="exclaim" class="feature" x="84" y="16">!</text>
+          <g id="zzz" class="feature"><text x="78" y="20">z</text><text x="90" y="6">z</text></g>
         </svg>
       </div>
     </div>
