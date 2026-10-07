@@ -256,6 +256,14 @@ function tick() {
   }
   // "still" and "sleep" stay exactly where you put them.
 
+  // If anything ever turned the position into NaN/Infinity (a screen being
+  // unplugged, a glitchy drag), start over in the corner instead of crashing.
+  if (![pos.x, pos.y].every(Number.isFinite)) {
+    homePosition();
+    drag = null;
+  }
+  if (![vel.x, vel.y].every(Number.isFinite)) vel = { x: 0, y: 0 };
+
   const rx = Math.round(pos.x);
   const ry = Math.round(pos.y);
   const [wx, wy] = win.getPosition();
@@ -884,9 +892,9 @@ function refreshTray() {
 // ---------------------------------------------------------------------------
 // IPC from the renderer
 
-ipcMain.on('drag-start', (_e, { x, y }) => {
+ipcMain.on('drag-start', (_e, { x, y } = {}) => {
   const c = screen.getCursorScreenPoint();
-  drag = { offX: x, offY: y, startX: c.x, startY: c.y, moved: false, samples: [] };
+  drag = { offX: Number(x) || BX, offY: Number(y) || BY, startX: c.x, startY: c.y, moved: false, samples: [] };
 });
 
 ipcMain.on('drag-end', () => {
@@ -939,9 +947,28 @@ ipcMain.handle('add-reminder', (_e, { text, when }) => {
 
 // ---------------------------------------------------------------------------
 
-function createWindow() {
+// Bottom-right corner of the main screen.
+function homePosition() {
   const wa = screen.getPrimaryDisplay().workArea;
   pos = { x: wa.x + wa.width - W - 80, y: wa.y + wa.height - H };
+  vel = { x: 0, y: 0 };
+}
+
+// One hiccup must never turn into an error popup 60 times a second.
+let tickErrorShown = false;
+function safeTick() {
+  try {
+    tick();
+  } catch (e) {
+    if (!tickErrorShown) console.error('tick:', e);
+    tickErrorShown = true;
+    homePosition();
+    drag = null;
+  }
+}
+
+function createWindow() {
+  homePosition();
 
   win = new BrowserWindow({
     width: W,
@@ -977,7 +1004,7 @@ function createWindow() {
     setTimeout(scheduleCheck, 3000);
   });
 
-  setInterval(tick, 16);
+  setInterval(safeTick, 16);
   setInterval(scheduleCheck, 20000);
   setInterval(checkTyping, 500);
   setInterval(checkDistraction, 15000);
