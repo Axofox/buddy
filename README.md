@@ -8,7 +8,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
 - **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
-- **reminds you of meetings** from your Google Calendar 5 minutes before, with a **Join call** button
+- **reminds you of meetings** from Apple Calendar or Google Calendar 5 minutes before, with a **Join call** button, and pops up your **Apple Reminders** when they're due
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
 - **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
@@ -57,16 +57,27 @@ You can write the time as `10m`, `45 min`, `1h30`, `in 2 hours`, `14:30`, `2pm` 
 
 Reminders are saved, so they survive a restart. To cancel one, right-click → **Reminders**.
 
-### Meetings from Google Calendar
+### Apple Calendar & Reminders (Mac)
+
+Use the Buddy app (`npm run app`), then click the flame in the menu bar → **Calendar** → **Connect Apple Calendar & Reminders**. Your Mac asks once whether Buddy may see your calendars and reminders; click **Allow** (if you clicked Don't Allow, change it in System Settings → Privacy & Security → Calendars / Reminders).
+
+- Every calendar in the Calendar app counts, including Google or iCloud calendars you've added there. Meetings get the 5-minute warning and **Join call** button described below; all-day events, cancelled ones and ones you've declined are skipped.
+- Reminders that have a time (or an alert) pop up when they're due and stay until you click them.
+- **Calendar** in the menu lists what's coming up. Changes in Calendar or Reminders show up within 2 minutes.
+- Everything stays on your Mac; Buddy only reads, it never changes anything.
+
+`npm run app` builds a tiny helper for this with Xcode's command line tools; if it says it couldn't, run `xcode-select --install` and then `npm run app` again.
+
+### Meetings from Google Calendar (link)
 
 Buddy reads your calendar through its private iCal link. You don't need a Google login or any setup on Google's side.
 
 1. Open [Google Calendar](https://calendar.google.com) in your browser.
 2. In the list on the left, hover over your calendar → **⋮** → **Settings and sharing**.
 3. Scroll down to **Integrate calendar** and copy the **Secret address in iCal format** (it ends in `basic.ics`).
-4. Right-click Buddy → **Meetings** → **Connect Google Calendar…**, paste it, and press Enter.
+4. Right-click Buddy → **Calendar** → **Connect Google Calendar (link)…**, paste it, and press Enter.
 
-Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 5 mins (10:00)"*. If the meeting has a Google Meet, Zoom, Teams, Webex or Whereby link, it also shows a **Join call** button. When the meeting starts, it reminds you again. Right-click → **Meetings** lists what's coming up (click one to join), and lets you connect more calendars or disconnect them.
+Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 5 mins (10:00)"*. If the meeting has a Google Meet, Zoom, Teams, Webex or Whereby link, it also shows a **Join call** button. When the meeting starts, it reminds you again. Right-click → **Calendar** lists what's coming up (click one to join), and lets you add more calendar links or disconnect them. If the same calendar is also in Apple Calendar, each meeting still only shows once.
 
 Buddy checks your calendar every 10 minutes. All-day events and cancelled meetings are skipped. Keep the secret address private: anyone who has it can see your calendar. Buddy stores it only in your settings file. Other calendars that offer an `.ics` link (Outlook, iCloud, Fastmail…) work too. Change the warning time with `meetingMinutesBefore`.
 
@@ -171,6 +182,8 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
   "calendars": [],
+  "appleCalendar": false,
+  "appleReminders": false,
   "meetingMinutesBefore": 5,
   "idleChatter": true,
   "systemNotifications": true,
@@ -201,6 +214,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
+| `apple.js`, `helpers/eventkit.swift` | Apple Calendar & Reminders (the Swift helper reads them through macOS's EventKit) |
 | `activity.js` | Which app and website are in front |
 | `habits.js` | Distraction and typing logic (tested) |
 | `assets/` | Menu bar and app icons |
