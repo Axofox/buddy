@@ -72,7 +72,9 @@ html, body {
 [data-mood="sleep"] .m-sleep,
 [data-mood="hungry"] .m-hungry,
 [data-mood="love"] .m-love,
-[data-mood="sad"] .m-sad { display: inline; }
+[data-mood="sad"] .m-sad,
+[data-mood="sly"] .m-sly,
+[data-mood="thinking"] .m-thinking { display: inline; }
 
 [data-mood="sleep"] #eyes,
 [data-mood="love"] #eyes { display: none; }
@@ -83,7 +85,11 @@ html, body {
 
 /* heavy lids: sleepy, hungry */
 [data-mood="sleepy"] .eye .lid,
-[data-mood="hungry"] .eye .lid { display: inline; }
+[data-mood="hungry"] .eye .lid,
+[data-mood="sly"] .eye .lid { display: inline; }
+/* CSS transform beats the cursor-tracking transform attribute */
+[data-mood="sly"] .pupil { transform: translate(3.5px, 1px); }
+[data-mood="thinking"] .pupil { transform: translate(2.5px, -3.5px); }
 [data-mood="alert"] .eye .white,
 [data-mood="surprised"] .eye .white { transform: scale(1.15); }
 [data-mood="alert"] .pupil circle,
@@ -99,6 +105,14 @@ html, body {
 [data-mood="sleep"] #ball-wrap { animation: breathe 3.2s ease-in-out infinite; }
 [data-mood="sleep"] #zzz { animation: float 2.4s ease-in-out infinite; }
 #ball-wrap.poke { animation: poke 0.45s ease-out; }
+/* the flame flickers while you type */
+#ball { transform-origin: 50% 100%; }
+body.typing #ball { animation: flicker 0.32s ease-in-out infinite alternate; }
+
+@keyframes flicker {
+  from { transform: scale(1, 1) skewX(0deg); }
+  to { transform: scale(0.97, 1.07) skewX(-2deg); }
+}
 
 @keyframes jiggle {
   0%, 100% { transform: translateY(0) rotate(0); }
@@ -140,6 +154,16 @@ html, body {
   animation: pop 0.25s cubic-bezier(.3, 1.6, .5, 1);
   word-wrap: break-word;
 }
+/* long answers scroll inside the bubble (the bubble itself can't, or its tail gets cut off) */
+#bubble-text {
+  white-space: pre-wrap;
+  max-height: 160px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+#bubble-text::-webkit-scrollbar { width: 4px; }
+#bubble-text::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 2px; }
+#bubble.long { text-align: left; }
 #bubble::after {
   content: "";
   position: absolute;
@@ -165,9 +189,9 @@ html, body {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* ---------- reminder form ---------- */
+/* ---------- reminder + ask forms ---------- */
 
-#remind-form {
+.panel {
   position: absolute;
   left: 8px;
   right: 8px;
@@ -181,8 +205,9 @@ html, body {
   gap: 6px;
   animation: pop 0.25s cubic-bezier(.3, 1.6, .5, 1);
 }
-#remind-form .row { display: flex; gap: 6px; }
-#remind-form input {
+#ask-form { flex-direction: row; }
+.panel .row { display: flex; gap: 6px; }
+.panel input {
   flex: 1;
   min-width: 0;
   border: 1px solid #d5dbe5;
@@ -192,13 +217,13 @@ html, body {
   font-size: 12px;
   outline: none;
 }
-#remind-form input:focus { border-color: var(--body); }
-#remind-form button {
+.panel input:focus { border-color: var(--body); }
+.panel button {
   border: 0;
   border-radius: 8px;
   padding: 0 12px;
   background: var(--body);
-  color: var(--ink);
+  color: #fff;
   font-weight: 700;
   cursor: pointer;
 }

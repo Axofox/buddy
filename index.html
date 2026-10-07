@@ -10,10 +10,15 @@
   <div id="stage">
     <div id="bubble" class="hidden">
       <div id="bubble-text"></div>
-      <div id="bubble-hint">click to dismiss</div>
+      <div id="bubble-hint">click to close</div>
     </div>
 
-    <form id="remind-form" class="hidden" autocomplete="off">
+    <form id="ask-form" class="panel hidden" autocomplete="off">
+      <input id="ask-text" placeholder="Ask me anything…" maxlength="2000">
+      <button type="submit">↑</button>
+    </form>
+
+    <form id="remind-form" class="panel hidden" autocomplete="off">
       <input id="remind-text" placeholder="Remind me to…" maxlength="200">
       <div class="row">
         <input id="remind-when" placeholder="10m, 1h30, 14:30, 2pm">
@@ -61,6 +66,8 @@
           <path class="mouth m-hungry" d="M45 67 Q48 64 50 67 Q52 64 55 67"/>
           <path class="mouth m-love" d="M45 66 Q50 71 55 66"/>
           <path class="mouth m-sad" d="M45 69 Q50 64 55 69"/>
+          <path class="mouth m-sly" d="M45 67 Q51 70 56 65"/>
+          <path class="mouth m-thinking" d="M46 69 L54 67"/>
 
           <!-- extras -->
           <text id="exclaim" class="feature" x="84" y="30">!</text>
