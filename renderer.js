@@ -47,7 +47,7 @@ function renderMood() {
 
 buddy.on('look', ({ dx, dy, vy }) => {
   const dist = Math.hypot(dx, dy) || 1;
-  const reach = Math.min(1, dist / 160) * 4.5;
+  const reach = Math.min(1, dist / 160) * 6;
   const px = (dx / dist) * reach;
   const py = (dy / dist) * reach;
   pupils.forEach((p) => p.setAttribute('transform', `translate(${px.toFixed(2)} ${py.toFixed(2)})`));

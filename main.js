@@ -9,9 +9,9 @@ const { parseWhen, formatWhen, toMinutes } = require('./when');
 // ---------------------------------------------------------------------------
 // Geometry: the window is a small transparent box. The ball sits at the bottom
 // centre, the speech bubble floats above it.
-const W = 260;
-const H = 230;
-const BALL = 96;
+const W = 220;
+const H = 170;
+const BALL = 48;
 const BX = W / 2; // ball centre inside the window
 const BY = H - BALL / 2 - 2;
 
@@ -124,7 +124,7 @@ function hop(strength = 1, towardX = null) {
   else if (cx < b.minX + 150) dir = 1;
   else if (cx > b.maxX - 150) dir = -1;
   else dir = Math.random() < 0.5 ? -1 : 1;
-  vel.y = -(7 + Math.random() * 7) * strength;
+  vel.y = -(5.5 + Math.random() * 5.5) * strength;
   vel.x = dir * (1.5 + Math.random() * 4) * (towardX !== null ? 0.6 : 1);
   grounded = false;
 }
@@ -166,8 +166,8 @@ function physicsStep(now) {
 function followStep(cursor, now) {
   // Hover a little below-right of the cursor, like a pet tagging along.
   const b = bounds();
-  const tx = cursor.x + 70 - BX;
-  const ty = cursor.y + 60 - BY;
+  const tx = cursor.x + 40 - BX;
+  const ty = cursor.y + 36 - BY;
   const dx = tx - pos.x;
   const dy = ty - pos.y;
   const dist = Math.hypot(dx, dy);
