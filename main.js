@@ -7,9 +7,13 @@ const fs = require('fs');
 const http = require('http');
 const { parseWhen, formatWhen, toMinutes } = require('./when');
 const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
-const { currentActivity } = require('./activity');
-const { askClaude } = require('./ask');
+const { currentActivity, macIdleMs } = require('./activity');
+const { askClaude, cleanAnswer } = require('./ask');
+const { askLocal } = require('./local-ai');
 const { fetchMeetings } = require('./calendar');
+const {
+  findHelper, appleMeetings, appleReminders, mergeMeetings, AccessDenied,
+} = require('./apple');
 
 // ---------------------------------------------------------------------------
 // Geometry: the window is a small transparent box. The ball sits at the bottom
@@ -45,7 +49,11 @@ const DEFAULT_CONFIG = {
   typingCheers: true,
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
+  askWith: 'claude', // "claude", or "local" for a private AI on this computer (Ollama)
+  localModel: 'llama3.2:3b', // which Ollama model to use for "local"
   calendars: [], // secret iCal (.ics) addresses, e.g. from Google Calendar
+  appleCalendar: false, // Mac: read Apple Calendar (turn on from the menu)
+  appleReminders: false, // Mac: pop up Apple Reminders when they're due
   meetingMinutesBefore: 5, // 0 only tells you when a meeting starts
   idleChatter: true,
   systemNotifications: true, // also show an OS notification for Claude alerts and reminders
@@ -108,6 +116,11 @@ function loadConfig() {
   if (cals !== loadedCalendars) {
     loadedCalendars = cals;
     refreshMeetings();
+  }
+  const apple = `${!!config.appleCalendar}/${!!config.appleReminders}`;
+  if (apple !== loadedApple) {
+    loadedApple = apple;
+    refreshApple();
   }
 }
 
@@ -498,18 +511,41 @@ async function checkDistraction() {
 // ---------------------------------------------------------------------------
 // Typing: the flame flickers while you type and cheers on long streaks.
 
-const typing = new TypingTracker();
+const typing = new TypingTracker({ windowSize: 12 }); // ~6 s, so it reacts quickly
 let lastCursor = null;
 let idleWorks = false; // some systems always report 0; don't take that as typing
 
-function checkTyping() {
+let typingBusy = false;
+let hidWorks = true; // falls back to Electron's idle time if reading it fails
+
+async function inputJustNow() {
+  if (process.platform === 'darwin' && hidWorks) {
+    const ms = await macIdleMs();
+    if (ms !== null) return ms < 700;
+    hidWorks = false;
+  }
+  const idle = idleSeconds();
+  if (idle > 0) idleWorks = true;
+  return idleWorks && idle === 0;
+}
+
+async function checkTyping() {
+  if (typingBusy) return;
+  typingBusy = true;
+  try {
+    await sampleTyping();
+  } finally {
+    typingBusy = false;
+  }
+}
+
+async function sampleTyping() {
+  const input = await inputJustNow();
   const c = screen.getCursorScreenPoint();
   const moved = !lastCursor || c.x !== lastCursor.x || c.y !== lastCursor.y;
   lastCursor = c;
-  const idle = idleSeconds();
-  if (idle > 0) idleWorks = true;
-  const r = typing.sample(Date.now(), idleWorks && idle === 0, moved || !!drag);
-  if (r.changed) send('typing', r.typing);
+  const r = typing.sample(Date.now(), input, moved || !!drag);
+  if (r.levelChanged) send('typing', r.level);
   if (r.milestone && config.typingCheers) {
     const lines = {
       10: ['You\'re on fire! 🔥', 'Look at you go! ⌨️✨', 'Tap tap tap! 🔥'],
@@ -518,6 +554,7 @@ function checkTyping() {
       90: ['90 minutes of typing!! Legend. Take a real break? 🌿'],
     }[r.milestone] || ['🔥'];
     say(pick(lines), { mood: 'excited', duration: 6000, sound: 'happy' });
+    send('sparks', 14); // a little celebration
   }
 }
 
@@ -542,9 +579,13 @@ async function ask(question) {
     return;
   }
   asking = true;
+  const followUp = Date.now() - lastAskAt < 10 * 60000;
+  if (config.askWith === 'local') {
+    await askLocally(q, followUp);
+    return;
+  }
   say(pick(['Hmm, let me think… 🤔', 'Thinking… 🤔', 'Ooh, good one. One sec… 🤔']),
     { mood: 'thinking', duration: 150000, key: 'ask', urgent: true });
-  const followUp = Date.now() - lastAskAt < 10 * 60000;
   const res = await askClaude(q, {
     cwd: path.join(app.getPath('userData'), 'ask'),
     followUp,
@@ -562,6 +603,33 @@ async function ask(question) {
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  }
+}
+
+// The local AI forgets everything between calls, so we keep the last few
+// turns ourselves for follow-up questions.
+let localHistory = [];
+
+async function askLocally(q, followUp) {
+  say(pick(['Thinking it over, right here on your Mac… 🤔', 'Hmm… (local brain, give me a moment) 🤔']),
+    { mood: 'thinking', duration: 200000, key: 'ask', urgent: true });
+  if (!followUp) localHistory = [];
+  const model = config.localModel || 'llama3.2:3b';
+  const res = await askLocal(q, { model, history: localHistory });
+  asking = false;
+  lastAskAt = Date.now();
+  if (res.ok) {
+    const text = cleanAnswer(res.text);
+    localHistory = localHistory.concat({ role: 'user', content: q }, { role: 'assistant', content: text }).slice(-8);
+    say(text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
+  } else if (res.notRunning) {
+    say('My local brain is asleep 😴 Open the Ollama app (or install it from ollama.com), then ask me again.',
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else if (res.noModel) {
+    say(`I don't have the "${model}" model yet. In Terminal, run: ollama pull ${model}`,
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else {
+    say(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   }
 }
 
@@ -583,15 +651,29 @@ function registerShortcut() {
 // Meetings from your calendar(s)
 
 let loadedCalendars = '';
-let meetings = [];
+let loadedApple = '';
+let icsMeetings = []; // from pasted calendar links
+let appleMeetingsList = []; // from Apple Calendar
+let appleReminderList = []; // from Apple Reminders
+let meetings = []; // both, merged
 let calendarError = '';
+let appleError = '';
+let appleHelper; // undefined = not looked for yet, null = not available
 const announced = new Map(); // "<meeting id>:soon|now" -> when we said it
+
+const appleOn = () => !!(config.appleCalendar || config.appleReminders);
+
+function combineMeetings() {
+  meetings = mergeMeetings(icsMeetings, appleMeetingsList);
+  refreshTray();
+}
 
 async function refreshMeetings() {
   const urls = (config.calendars || []).filter(Boolean);
   if (!urls.length) {
-    meetings = [];
-    refreshTray();
+    icsMeetings = [];
+    calendarError = '';
+    combineMeetings();
     return;
   }
   const from = new Date(Date.now() - 60 * 60000);
@@ -606,9 +688,92 @@ async function refreshMeetings() {
     }
   }));
   // If every calendar failed (offline?), keep what we had.
-  if (all.length || !errors.length) meetings = all.sort((a, b) => a.start - b.start);
+  if (all.length || !errors.length) icsMeetings = all;
   calendarError = errors[0] || '';
-  refreshTray();
+  combineMeetings();
+}
+
+// Apple Calendar + Reminders live on this Mac, so checking often is cheap.
+let appleBusy = false;
+async function refreshApple() {
+  if (!appleOn()) {
+    appleMeetingsList = [];
+    appleReminderList = [];
+    appleError = '';
+    combineMeetings();
+    return;
+  }
+  if (appleBusy) return;
+  appleBusy = true;
+  try {
+    if (appleHelper === undefined) {
+      appleHelper = findHelper({
+        packaged: app.isPackaged, resourcesPath: process.resourcesPath, userData: app.getPath('userData'),
+      });
+    }
+    if (!appleHelper) {
+      appleError = 'missing';
+      return;
+    }
+    const now = Date.now();
+    const errors = [];
+    if (config.appleCalendar) {
+      try {
+        appleMeetingsList = await appleMeetings(appleHelper, new Date(now - 60 * 60000), new Date(now + 36 * 3600000));
+      } catch (e) {
+        errors.push(e instanceof AccessDenied ? 'denied' : e.message);
+      }
+    } else {
+      appleMeetingsList = [];
+    }
+    if (config.appleReminders) {
+      try {
+        appleReminderList = await appleReminders(appleHelper, new Date(now - 15 * 60000), new Date(now + 36 * 3600000));
+      } catch (e) {
+        errors.push(e instanceof AccessDenied ? 'denied' : e.message);
+      }
+    } else {
+      appleReminderList = [];
+    }
+    appleError = errors[0] || '';
+  } finally {
+    appleBusy = false;
+    combineMeetings();
+  }
+}
+
+async function connectApple() {
+  saveConfigKey('appleCalendar', true);
+  saveConfigKey('appleReminders', true);
+  loadedApple = 'true/true';
+  say('Peeking at your calendar… if your Mac asks, please click Allow 🙏', { mood: 'thinking', duration: 60000, key: 'apple' });
+  appleHelper = undefined; // look again, in case it was just built
+  await refreshApple();
+  if (appleError === 'missing') {
+    say(app.isPackaged
+      ? 'I couldn\'t find my calendar helper 😢 Rebuild me with "npm run app" in Terminal (it needs Xcode\'s command line tools).'
+      : 'Apple Calendar needs the Buddy app: run "npm run app" in Terminal, then open Buddy from Applications.',
+    { mood: 'sad', sticky: true, key: 'apple' });
+  } else if (appleError === 'denied') {
+    say('I wasn\'t allowed to see your calendar or reminders 🙈 Allow Buddy in System Settings → Privacy & Security → Calendars and Reminders, then try again.',
+      { mood: 'sad', sticky: true, key: 'apple' });
+  } else if (appleError) {
+    say(`Hmm, Apple Calendar didn't work: ${appleError.slice(0, 150)}`, { mood: 'sad', sticky: true, key: 'apple' });
+  } else {
+    const next = appleMeetingsList.filter((m) => m.start > Date.now())[0];
+    const rems = appleReminderList.filter((r) => r.due > Date.now()).length;
+    const parts = [next ? `next up: ${next.title} at ${hhmm(next.start)}` : 'no meetings in the next day'];
+    if (rems) parts.push(`${rems} reminder${rems === 1 ? '' : 's'} coming up`);
+    say(`Apple Calendar connected! ${parts.join(', ')} 📅`, { mood: 'excited', duration: 8000, sound: 'happy', key: 'apple' });
+  }
+}
+
+function disconnectApple() {
+  saveConfigKey('appleCalendar', false);
+  saveConfigKey('appleReminders', false);
+  loadedApple = 'false/false';
+  refreshApple();
+  say('Okay, Apple Calendar disconnected 👋', { duration: 4000 });
 }
 
 function hhmm(ts) {
@@ -633,39 +798,80 @@ function checkMeetings() {
         { mood: 'alert', sticky: true, sound: 'alert', key, notify: true, link: m.link });
     }
   }
+  // Apple Reminders: pop up when due (up to 15 min late, e.g. after waking up).
+  for (const r of appleReminderList) {
+    if (now >= r.due && now - r.due < 15 * 60000 && !announced.has(`rem:${r.id}`)) {
+      announced.set(`rem:${r.id}`, now);
+      say(`⏰ ${r.title}`, { mood: 'alert', sticky: true, sound: 'alert', key: `arem:${r.id}`, notify: true });
+    }
+  }
   for (const [k, t] of announced) if (now - t > 24 * 3600000) announced.delete(k);
+}
+
+function dayLabel(ts) {
+  return new Date(ts).toDateString() === new Date().toDateString() ? '' : 'tomorrow ';
 }
 
 function meetingMenu() {
   const items = [];
-  if (!(config.calendars || []).length) {
-    items.push({ label: 'Connect Google Calendar…', click: () => openForm('calendar') });
-    return items;
-  }
-  const upcoming = meetings.filter((m) => m.end > Date.now()).slice(0, 10);
-  if (!upcoming.length) items.push({ label: calendarError ? `Couldn't load: ${calendarError}`.slice(0, 70) : 'Nothing coming up 🎉', enabled: false });
-  for (const m of upcoming) {
-    const day = new Date(m.start).toDateString() === new Date().toDateString() ? '' : 'tomorrow ';
-    items.push({
-      label: `${day}${hhmm(m.start)}  ${m.title}${m.link ? '  📹' : ''}`.slice(0, 70),
-      enabled: !!m.link,
-      click: () => openLink(m.link),
+  const mac = process.platform === 'darwin' || !!process.env.BUDDY_EVENTKIT_HELPER;
+  const anything = (config.calendars || []).length || appleOn();
+
+  if (anything) {
+    const upcoming = meetings.filter((m) => m.end > Date.now()).slice(0, 10);
+    const errs = [calendarError && `Couldn't load: ${calendarError}`, appleError === 'denied' && 'Apple Calendar: not allowed yet',
+      appleError === 'missing' && 'Apple Calendar needs the Buddy app (npm run app)',
+      appleError && !['denied', 'missing'].includes(appleError) && `Apple Calendar: ${appleError}`].filter(Boolean);
+    for (const e of errs) items.push({ label: e.slice(0, 70), enabled: false });
+    if (appleError === 'denied') {
+      items.push({
+        label: 'Open Privacy Settings…',
+        click: () => shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars'),
+      });
+    }
+    if (!upcoming.length && !errs.length) items.push({ label: 'No meetings coming up 🎉', enabled: false });
+    for (const m of upcoming) {
+      items.push({
+        label: `${dayLabel(m.start)}${hhmm(m.start)}  ${m.title}${m.link ? '  📹' : ''}`.slice(0, 70),
+        enabled: !!m.link,
+        click: () => openLink(m.link),
+      });
+    }
+    const rems = appleReminderList.filter((r) => r.due > Date.now()).slice(0, 8);
+    if (rems.length) {
+      items.push({ type: 'separator' });
+      for (const r of rems) items.push({ label: `⏰ ${dayLabel(r.due)}${hhmm(r.due)}  ${r.title}`.slice(0, 70), enabled: false });
+    }
+    items.push({ type: 'separator' }, {
+      label: 'Refresh',
+      click: () => {
+        refreshMeetings();
+        refreshApple();
+      },
     });
   }
-  items.push(
-    { type: 'separator' },
-    { label: 'Refresh', click: () => refreshMeetings() },
-    { label: 'Connect another calendar…', click: () => openForm('calendar') },
-    {
-      label: 'Disconnect calendars',
-      click: () => {
-        saveConfigKey('calendars', []);
-        meetings = [];
-        refreshTray();
-        say('Okay, calendars disconnected 👋', { duration: 4000 });
+
+  if (mac) {
+    items.push(appleOn()
+      ? { label: 'Disconnect Apple Calendar & Reminders', click: disconnectApple }
+      : { label: 'Connect Apple Calendar & Reminders', click: connectApple });
+  }
+  if ((config.calendars || []).length) {
+    items.push(
+      { label: 'Add a calendar link…', click: () => openForm('calendar') },
+      {
+        label: 'Disconnect calendar links',
+        click: () => {
+          saveConfigKey('calendars', []);
+          icsMeetings = [];
+          combineMeetings();
+          say('Okay, calendar links disconnected 👋', { duration: 4000 });
+        },
       },
-    },
-  );
+    );
+  } else {
+    items.push({ label: 'Connect Google Calendar (link)…', click: () => openForm('calendar') });
+  }
   return items;
 }
 
@@ -833,9 +1039,23 @@ function menuTemplate() {
       registerAccelerator: false,
       click: () => openForm('ask'),
     },
+    {
+      label: 'Answers from',
+      submenu: [
+        {
+          label: 'Claude (smartest)', type: 'radio', checked: config.askWith !== 'local',
+          click: () => saveConfigKey('askWith', 'claude'),
+        },
+        {
+          label: `Local AI on this computer (private, free): ${config.localModel || 'llama3.2:3b'}`,
+          type: 'radio', checked: config.askWith === 'local',
+          click: () => saveConfigKey('askWith', 'local'),
+        },
+      ],
+    },
     { label: 'Add reminder…', click: () => openForm('remind') },
     { label: 'Reminders', submenu: reminderItems },
-    { label: 'Meetings', submenu: meetingMenu() },
+    { label: 'Calendar', submenu: meetingMenu() },
     { type: 'separator' },
     {
       label: 'Sounds', type: 'checkbox', checked: config.sounds,
@@ -1031,6 +1251,7 @@ function createWindow() {
   setInterval(checkDistraction, 15000);
   setInterval(checkMeetings, 15000);
   setInterval(refreshMeetings, 10 * 60000);
+  setInterval(refreshApple, 2 * 60000);
 }
 
 app.whenReady().then(() => {
@@ -1051,6 +1272,7 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => {
     setTimeout(scheduleCheck, 2000);
     setTimeout(refreshMeetings, 5000); // the network needs a moment after waking up
+    setTimeout(refreshApple, 3000);
   });
   powerMonitor.on('unlock-screen', () => setTimeout(scheduleCheck, 2000));
 });
