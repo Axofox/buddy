@@ -1,9 +1,9 @@
 // Battery and internet watching. No AI, no accounts: just the Mac's own
 // battery report (`pmset`, Linux: /sys) and a tiny "am I online?" check.
 
-const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { run } = require('./sys');
 
 // ---------------------------------------------------------------------------
 // Reading the battery
@@ -29,14 +29,8 @@ function parseSysfs(capacity, status) {
   return { percent, plugged: !/discharging/i.test(String(status)) };
 }
 
-function run(cmd, args) {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 5000 }, (err, out) => resolve(err ? '' : String(out)));
-  });
-}
-
 async function readBattery() {
-  if (process.platform === 'darwin') return parsePmset(await run('pmset', ['-g', 'batt']));
+  if (process.platform === 'darwin') return parsePmset(await run('pmset', ['-g', 'batt'], { timeout: 5000 }));
   if (process.platform === 'linux') {
     try {
       const base = '/sys/class/power_supply';

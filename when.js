@@ -51,9 +51,15 @@ function pad(n) {
   return String(n).padStart(2, '0');
 }
 
+// "09:05"
+function hhmm(ts) {
+  const d = new Date(ts);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function formatWhen(ts, now = new Date()) {
   const d = new Date(ts);
-  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const hm = hhmm(d);
   const sameDay = d.toDateString() === now.toDateString();
   if (sameDay) return hm;
   const t = new Date(now);
@@ -68,4 +74,4 @@ function toMinutes(hhmm) {
   return h * 60 + (m || 0);
 }
 
-module.exports = { parseWhen, formatWhen, toMinutes };
+module.exports = { parseWhen, formatWhen, toMinutes, hhmm };

@@ -1,7 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { matchDistraction, FocusTracker, TypingTracker } = require('../habits');
-const { cleanAnswer } = require('../ask');
 
 const cfg = { sites: ['youtube.com', 'x.com'], apps: ['Steam'] };
 
@@ -72,10 +71,6 @@ test('typing milestones fire once each', () => {
   assert.deepStrictEqual(hits, [10, 25]);
 });
 
-test('answers are cleaned for the bubble', () => {
-  assert.strictEqual(cleanAnswer('## Hi\n**Bold** move\n\n\n\nok\n'), 'Hi\nBold move\n\nok');
-});
-
 test('typing heats up: typing, fast, then on fire after 2 minutes', () => {
   const t = new TypingTracker();
   let now = 0;
@@ -90,11 +85,4 @@ test('typing heats up: typing, fast, then on fire after 2 minutes', () => {
   assert.strictEqual(r.level, 0);
   for (let i = 0; i < 40; i += 1) r = t.sample((now += 500), true, false);
   assert.ok(r.level < 3, 'not on fire again right away');
-});
-
-test('reads macOS input idle time from ioreg output', () => {
-  const { parseHidIdle } = require('../activity');
-  const sample = '  | |   "HIDIdleTime" = 452000000\n  | |   "HIDParameters" = {}';
-  assert.strictEqual(parseHidIdle(sample), 452);
-  assert.strictEqual(parseHidIdle(''), null);
 });

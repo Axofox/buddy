@@ -5,13 +5,16 @@ const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { isFile } = require('./sys');
 
-const SYSTEM = [
+// Who Buddy is, for any AI that answers for it (Claude here, Ollama in local-ai.js).
+const PERSONA = [
   'You are Buddy, a tiny friendly flame that lives on the user\'s desktop.',
   'Your answer appears in a small speech bubble, so keep it short: 1 to 4 sentences,',
   'plain text only, no markdown, no headings, no code blocks unless asked for code.',
-  'Be warm and direct. You may look things up on the web if needed.',
+  'Be warm and direct.',
 ].join(' ');
+const SYSTEM = `${PERSONA} You may look things up on the web if needed.`;
 
 // When launched from Finder or at login, PATH is minimal, so also look where
 // Claude Code usually lives.
@@ -26,14 +29,6 @@ function searchPath() {
     '/usr/local/bin',
   ];
   return [process.env.PATH || '', ...extra].join(path.delimiter);
-}
-
-function isFile(p) {
-  try {
-    return fs.statSync(p).isFile();
-  } catch {
-    return false;
-  }
 }
 
 // Every place Claude Code might live: PATH, the usual install folders, and
@@ -86,10 +81,10 @@ function cleanAnswer(text) {
 async function askClaude(question, opts = {}) {
   const bin = await findClaude();
   if (!bin) return { ok: false, text: 'claude not found', missing: true };
-  return run(bin, question, opts);
+  return runClaude(bin, question, opts);
 }
 
-function run(bin, question, { cwd, followUp = false, model = '', timeoutMs = 120000 } = {}) {
+function runClaude(bin, question, { cwd, followUp = false, model = '', timeoutMs = 120000 } = {}) {
   return new Promise((resolve) => {
     try {
       fs.mkdirSync(cwd, { recursive: true });
@@ -145,4 +140,6 @@ function run(bin, question, { cwd, followUp = false, model = '', timeoutMs = 120
   });
 }
 
-module.exports = { askClaude, cleanAnswer, findClaude };
+module.exports = {
+  askClaude, cleanAnswer, findClaude, PERSONA,
+};
