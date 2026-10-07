@@ -556,6 +556,9 @@ async function ask(question) {
   } else if (res.missing) {
     say('I can\'t find Claude Code on this computer 😢 In Terminal, check that "claude --version" works. If it doesn\'t, install it with: curl -fsSL https://claude.ai/install.sh | bash',
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else if (/auth|log ?in|oauth|401|credential|api key/i.test(res.text)) {
+    say('Claude Code needs you to log in again 🔑 In Terminal, type "claude", then "/login", follow the steps, then ask me again.',
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   }
