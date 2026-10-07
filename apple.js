@@ -7,6 +7,7 @@ const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { meetingLink } = require('./calendar');
+const { isFile } = require('./sys');
 
 const SRC = path.join(__dirname, 'helpers', 'eventkit.swift');
 const PLIST = path.join(__dirname, 'helpers', 'eventkit-Info.plist');
@@ -22,14 +23,6 @@ function compileHelper(out) {
   ], { stdio: 'pipe' });
   return out;
 }
-
-const isFile = (p) => {
-  try {
-    return fs.statSync(p).isFile();
-  } catch {
-    return false;
-  }
-};
 
 // Where the helper is: inside the built app, freshly compiled for `npm start`,
 // or BUDDY_EVENTKIT_HELPER (used by the tests).

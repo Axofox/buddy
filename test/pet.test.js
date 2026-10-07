@@ -22,7 +22,7 @@ test('a big jump can grow and be ready at once', () => {
 });
 
 test('transforming starts a new life', () => {
-  const p = transform(addSparks(newPet(), 0) && newPet(), 'frog');
+  const p = transform(newPet(), 'frog');
   assert.deepStrictEqual(progress(p), { name: 'Dot', emoji: '🐸', xp: 0, next: 15, ready: false });
   assert.deepStrictEqual(p.lives, ['flame', 'frog']);
   assert.strictEqual(transform(p, 'dragon'), p); // unknown lives are ignored

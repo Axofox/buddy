@@ -5,7 +5,9 @@ const {
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-const { parseWhen, formatWhen, toMinutes } = require('./when');
+const {
+  parseWhen, formatWhen, toMinutes, hhmm,
+} = require('./when');
 const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
 const { currentActivity, macIdleMs } = require('./activity');
 const { askClaude, cleanAnswer } = require('./ask');
@@ -557,7 +559,7 @@ function scheduleCheck() {
   if (isNight() && Date.now() - state.lastBedtime > (config.bedtimeRepeatMinutes || 30) * 60000) {
     state.lastBedtime = Date.now();
     saveState();
-    const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const hm = hhmm(now);
     say(pick([
       `It's ${hm}… getting late${name()} 🌙`,
       `${hm} already! Time to wrap up? 😴`,
@@ -694,6 +696,13 @@ async function sampleTyping() {
 // Ask me anything (answers come from Claude Code)
 
 let lastAskAt = 0;
+
+// Answers (and "that didn't work") stay until clicked and go before other messages.
+function answer(text, mood = 'happy') {
+  say(text, {
+    mood, sticky: true, sound: mood === 'happy' ? 'happy' : null, key: 'ask', urgent: true,
+  });
+}
 let asking = false;
 
 function openForm(kind) {
@@ -733,15 +742,13 @@ async function ask(question) {
   asking = false;
   lastAskAt = Date.now();
   if (res.ok) {
-    say(res.text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
+    answer(res.text);
   } else if (res.missing) {
-    say('I can\'t find Claude Code on this computer 😢 In Terminal, check that "claude --version" works. If it doesn\'t, install it with: curl -fsSL https://claude.ai/install.sh | bash',
-      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer('I can\'t find Claude Code on this computer 😢 In Terminal, check that "claude --version" works. If it doesn\'t, install it with: curl -fsSL https://claude.ai/install.sh | bash', 'sad');
   } else if (/auth|log ?in|oauth|401|credential|api key/i.test(res.text)) {
-    say('Claude Code needs you to log in again 🔑 In Terminal, type "claude", then "/login", follow the steps, then ask me again.',
-      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer('Claude Code needs you to log in again 🔑 In Terminal, type "claude", then "/login", follow the steps, then ask me again.', 'sad');
   } else {
-    say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, 'sad');
   }
 }
 
@@ -760,15 +767,13 @@ async function askLocally(q, followUp) {
   if (res.ok) {
     const text = cleanAnswer(res.text);
     localHistory = localHistory.concat({ role: 'user', content: q }, { role: 'assistant', content: text }).slice(-8);
-    say(text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
+    answer(text);
   } else if (res.notRunning) {
-    say('My local brain is asleep 😴 Open the Ollama app (or install it from ollama.com), then ask me again.',
-      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer('My local brain is asleep 😴 Open the Ollama app (or install it from ollama.com), then ask me again.', 'sad');
   } else if (res.noModel) {
-    say(`I don't have the "${model}" model yet. In Terminal, run: ollama pull ${model}`,
-      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer(`I don't have the "${model}" model yet. In Terminal, run: ollama pull ${model}`, 'sad');
   } else {
-    say(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+    answer(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, 'sad');
   }
 }
 
@@ -932,11 +937,6 @@ function disconnectApple() {
   loadedApple = 'false/false';
   refreshApple();
   say('Okay, Apple Calendar disconnected 👋', { duration: 4000 });
-}
-
-function hhmm(ts) {
-  const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function checkMeetings() {
@@ -1278,7 +1278,7 @@ function menuTemplate() {
       label: 'Sounds', type: 'checkbox', checked: config.sounds,
       click: (i) => {
         config.sounds = i.checked;
-        writeJson(files().config, { ...readJson(files().config, {}), sounds: i.checked });
+        saveConfigKey('sounds', i.checked);
         send('config', publicConfig());
       },
     },
