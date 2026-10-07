@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.axofox.buddy.eventkit</string>
+  <key>CFBundleName</key>
+  <string>Buddy</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Buddy reminds you of your meetings a few minutes before they start.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Buddy reminds you of your meetings a few minutes before they start.</string>
+  <key>NSRemindersUsageDescription</key>
+  <string>Buddy pops up when one of your reminders is due.</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>Buddy pops up when one of your reminders is due.</string>
+</dict>
+</plist>

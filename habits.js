@@ -103,11 +103,15 @@ class TypingTracker {
     this.reached = 0;
     this.lastTypingAt = 0;
     this.last = null;
+    this.streakSince = null; // when the current unbroken typing run started
+    this.level = 0;
   }
 
   // inputNow: there was keyboard/mouse input in the last second.
   // mouseMoved: the cursor moved since the previous sample.
-  // Returns { typing, changed, milestone } (milestone in minutes, or null).
+  // Returns { typing, changed, level, levelChanged, milestone }.
+  // level: 0 not typing, 1 typing, 2 typing fast, 3 on fire (fast for 2+ min).
+  // milestone: minutes of typing this session just reached, or null.
   sample(now, inputNow, mouseMoved) {
     const dt = this.last === null ? 0 : Math.min(now - this.last, 5000);
     this.last = now;
@@ -118,6 +122,14 @@ class TypingTracker {
     const was = this.typing;
     // A little hysteresis so it doesn't flicker on and off.
     this.typing = was ? rate >= this.threshold * 0.6 : rate >= this.threshold;
+
+    if (this.typing && this.streakSince === null) this.streakSince = now;
+    if (!this.typing) this.streakSince = null;
+    const prevLevel = this.level;
+    if (!this.typing) this.level = 0;
+    else if (rate >= 0.8 && now - this.streakSince >= 2 * 60000) this.level = 3;
+    else if (rate >= (prevLevel >= 2 ? 0.7 : 0.8)) this.level = 2;
+    else this.level = 1;
 
     let milestone = null;
     if (this.typing) {
@@ -133,7 +145,13 @@ class TypingTracker {
         milestone = next;
       }
     }
-    return { typing: this.typing, changed: was !== this.typing, milestone };
+    return {
+      typing: this.typing,
+      changed: was !== this.typing,
+      level: this.level,
+      levelChanged: prevLevel !== this.level,
+      milestone,
+    };
   }
 }
 

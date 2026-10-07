@@ -58,4 +58,17 @@ async function currentActivity() {
   return { app: '', url: '', title: '' };
 }
 
-module.exports = { currentActivity };
+// macOS: milliseconds since the last keyboard/mouse input, read straight from
+// the input system (no permission needed). Electron's own idle time only
+// counts whole seconds, which is too coarse to tell typing apart.
+function parseHidIdle(text) {
+  const m = String(text).match(/"HIDIdleTime"\s*=\s*(\d+)/);
+  return m ? Math.floor(Number(m[1]) / 1e6) : null; // nanoseconds -> ms
+}
+
+async function macIdleMs() {
+  if (process.platform !== 'darwin') return null;
+  return parseHidIdle(await run('ioreg', ['-c', 'IOHIDSystem', '-d', '4']));
+}
+
+module.exports = { currentActivity, macIdleMs, parseHidIdle };

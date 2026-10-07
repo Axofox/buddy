@@ -320,7 +320,32 @@ buddy.on('mode', (m) => {
   mode = m;
   renderMood();
 });
-buddy.on('typing', (on) => document.body.classList.toggle('typing', !!on));
+// ---------- typing: heat level 0-3 from main ----------
+
+const sparksEl = $('sparks');
+function spark() {
+  const s = document.createElement('span');
+  s.className = 'spark';
+  s.style.left = `${(Math.random() - 0.5) * 22}px`;
+  s.style.setProperty('--dx', `${(Math.random() - 0.5) * 26}px`);
+  s.style.setProperty('--dur', `${0.6 + Math.random() * 0.6}s`);
+  if (Math.random() < 0.4) s.style.background = '#ff6a3d';
+  sparksEl.appendChild(s);
+  s.addEventListener('animationend', () => s.remove());
+}
+
+let sparkTimer = null;
+buddy.on('typing', (level) => {
+  const lv = Number(level) || 0;
+  document.body.dataset.typing = String(lv);
+  // the flame's tips sway faster the harder you type
+  $('sway').setAttribute('dur', ['2.6s', '1.4s', '0.9s', '0.55s'][lv] || '2.6s');
+  clearInterval(sparkTimer);
+  sparkTimer = lv >= 2 ? setInterval(spark, lv >= 3 ? 140 : 380) : null;
+});
+buddy.on('sparks', (n) => {
+  for (let i = 0; i < Math.min(Number(n) || 0, 30); i += 1) setTimeout(spark, i * 40);
+});
 buddy.on('night', (n) => {
   night = n;
   renderMood();

@@ -105,13 +105,46 @@ html, body {
 [data-mood="sleep"] #ball-wrap { animation: breathe 3.2s ease-in-out infinite; }
 [data-mood="sleep"] #zzz { animation: float 2.4s ease-in-out infinite; }
 #ball-wrap.poke { animation: poke 0.45s ease-out; }
-/* the flame flickers while you type */
-#ball { transform-origin: 50% 100%; }
-body.typing #ball { animation: flicker 0.32s ease-in-out infinite alternate; }
+/* ---------- typing: the flame grows with how fast you type ---------- */
+#ball { transform-origin: 50% 100%; --heat: 1; transition: filter 0.6s; }
+body[data-typing="1"] #ball { --heat: 1.06; animation: flicker 0.32s ease-in-out infinite alternate; }
+body[data-typing="2"] #ball { --heat: 1.14; animation: flicker 0.22s ease-in-out infinite alternate; filter: brightness(1.06); }
+body[data-typing="3"] #ball {
+  --heat: 1.26;
+  animation: flicker 0.15s ease-in-out infinite alternate;
+  filter: brightness(1.12) saturate(1.15) drop-shadow(0 0 5px rgba(255, 140, 50, 0.85));
+}
+/* eyes on your keyboard while you type */
+body[data-typing="1"] .pupil,
+body[data-typing="2"] .pupil,
+body[data-typing="3"] .pupil { transform: translate(0, 3.5px); }
 
 @keyframes flicker {
-  from { transform: scale(1, 1) skewX(0deg); }
-  to { transform: scale(0.97, 1.07) skewX(-2deg); }
+  from { transform: scale(1, var(--heat)) skewX(0deg); }
+  to { transform: scale(0.96, calc(var(--heat) + 0.08)) skewX(-2.5deg); }
+}
+
+#sparks {
+  position: absolute;
+  left: 50%;
+  bottom: 46px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #ffb020;
+  box-shadow: 0 0 4px #ff8a30;
+  animation: rise var(--dur, 0.9s) ease-out forwards;
+}
+@keyframes rise {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx, 0px), -55px) scale(0.3); opacity: 0; }
 }
 
 @keyframes jiggle {
