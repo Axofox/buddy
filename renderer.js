@@ -338,6 +338,8 @@ let sparkTimer = null;
 buddy.on('typing', (level) => {
   const lv = Number(level) || 0;
   document.body.dataset.typing = String(lv);
+  // the flame's tips sway faster the harder you type
+  $('sway').setAttribute('dur', ['2.6s', '1.4s', '0.9s', '0.55s'][lv] || '2.6s');
   clearInterval(sparkTimer);
   sparkTimer = lv >= 2 ? setInterval(spark, lv >= 3 ? 140 : 380) : null;
 });
