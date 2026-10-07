@@ -27,7 +27,15 @@ npm install
 npm start
 ```
 
-The flame appears near the bottom-right of your screen and says hi. A little flame icon also appears in your menu bar (or system tray) with the same menu as right-clicking it.
+The flame appears near the bottom-right of your screen and says hi. A little flame icon also appears in your menu bar (or system tray) with the same menu as right-clicking it, including **Hide buddy / Show buddy**. Hidden, the buddy still comes back by itself when something important happens (Claude needs you, a reminder or a meeting).
+
+### Make it a real app (no Terminal needed)
+
+```bash
+npm run app
+```
+
+On a Mac this builds **Buddy.app** and puts it in your Applications folder (the first time downloads ~100 MB and takes a minute). Open it from Launchpad or Spotlight (⌘ Space → "Buddy"), then right-click the flame → **Start when I log in**, so the flame is always in your menu bar. After a `git pull`, run `npm run app` again to update the app.
 
 ## Playing with it
 
@@ -195,6 +203,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
 | `activity.js` | Which app and website are in front |
 | `habits.js` | Distraction and typing logic (tested) |
-| `assets/` | Menu bar icons |
+| `assets/` | Menu bar and app icons |
+| `scripts/make-app.js` | `npm run app`: builds Buddy.app |
 | `when.js` | Turns "1h30" or "2pm" into a time |
 | `notify.js` | Claude Code hook → Buddy |

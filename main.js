@@ -227,7 +227,7 @@ function followStep(cursor, now, near) {
 }
 
 function tick() {
-  if (!win || win.isDestroyed()) return;
+  if (!win || win.isDestroyed() || hidden) return;
   const now = Date.now();
   const cursor = screen.getCursorScreenPoint();
   // Is the mouse reaching for the buddy? Then don't run away from it.
@@ -323,6 +323,7 @@ function pick(list) {
 function say(text, {
   mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false, link = '',
 } = {}) {
+  if (sticky && hidden) setHidden(false); // important things bring the buddy back
   send('say', { text, mood, duration, sticky, key, sound, urgent, link });
   if (notify && config.systemNotifications && Notification.isSupported()) {
     new Notification({ title: 'Buddy', body: text, silent: true }).show();
@@ -819,6 +820,8 @@ function menuTemplate() {
   });
 
   const items = [
+    { label: hidden ? 'Show buddy' : 'Hide buddy', click: () => setHidden(!hidden) },
+    { type: 'separator' },
     modeItem('bounce', 'Bounce around'),
     modeItem('follow', 'Follow me'),
     modeItem('still', 'Sit still'),
@@ -844,11 +847,12 @@ function menuTemplate() {
     },
   ];
   if (process.platform !== 'linux') {
-    items.push({
+    // Only the built app can start at login; `npm start` would open a bare Electron.
+    items.push(app.isPackaged ? {
       label: 'Start when I log in', type: 'checkbox',
       checked: app.getLoginItemSettings().openAtLogin,
       click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }),
-    });
+    } : { label: 'Start when I log in (needs the Buddy app: npm run app)', enabled: false });
   }
   items.push(
     { label: 'Open settings file', click: () => shell.openPath(files().config) },
@@ -857,6 +861,20 @@ function menuTemplate() {
     { label: 'Bye for now (quit)', click: () => app.quit() },
   );
   return items;
+}
+
+// Tuck the flame away (the menu bar icon stays) or bring it back.
+let hidden = false;
+function setHidden(h) {
+  hidden = h;
+  if (!win || win.isDestroyed()) return;
+  if (h) {
+    win.hide();
+  } else {
+    win.showInactive();
+    win.setAlwaysOnTop(true, 'floating');
+  }
+  refreshTray();
 }
 
 function showMenu() {
