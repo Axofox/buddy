@@ -18,7 +18,7 @@ const BY = H - BALL / 2 - 2;
 const DEFAULT_CONFIG = {
   name: '', // what the buddy calls you, e.g. "Christine"
   port: 47321, // local HTTP port for Claude Code hooks and scripts
-  color: '#6ec6ff',
+  color: '#ee5a3a',
   startMode: 'bounce', // bounce | follow | still | sleep
   morning: { from: '05:00', to: '11:30' },
   lunch: '12:30',
@@ -75,6 +75,8 @@ function loadConfig() {
   const f = files().config;
   if (!fs.existsSync(f)) writeJson(f, DEFAULT_CONFIG);
   config = { ...DEFAULT_CONFIG, ...readJson(f, {}) };
+  // The first version saved its blue as everyone's colour; move them to the new default.
+  if (config.color === '#6ec6ff') config.color = DEFAULT_CONFIG.color;
   if (win) win.webContents.send('config', publicConfig());
 }
 

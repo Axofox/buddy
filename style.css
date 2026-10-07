@@ -1,6 +1,6 @@
 :root {
-  --body: #6ec6ff;
-  --ink: #23324a;
+  --body: #ee5a3a;
+  --ink: #1a1a1a;
 }
 
 html, body {
@@ -45,15 +45,17 @@ html, body {
   fill: var(--body);
   transition: fill 0.4s;
 }
-.pupil ellipse { fill: var(--ink); }
-#eyes { transform-origin: 50px 44px; transition: transform 0.08s; }
+.eye .white { fill: #fff; }
+.pupil circle { fill: var(--ink); }
+.eye .lid { fill: var(--body); display: none; transition: fill 0.4s; }
+#eyes { transform-origin: 50px 64px; transition: transform 0.08s; }
 #eyes.blink { transform: scaleY(0.08); }
 
 .feature, .mouth { display: none; }
 .feature path, .mouth:not(.filled):not(g) {
   fill: none;
   stroke: var(--ink);
-  stroke-width: 5;
+  stroke-width: 3.5;
   stroke-linecap: round;
 }
 .filled, .mouth.filled { fill: var(--ink); }
@@ -73,21 +75,24 @@ html, body {
 [data-mood="sad"] .m-sad { display: inline; }
 
 [data-mood="sleep"] #eyes,
-[data-mood="excited"] #eyes,
 [data-mood="love"] #eyes { display: none; }
 [data-mood="sleep"] #eyes-closed,
-[data-mood="excited"] #eyes-squint,
 [data-mood="love"] #eyes-heart,
 [data-mood="alert"] #exclaim,
 [data-mood="sleep"] #zzz { display: inline; }
 
-[data-mood="sleepy"] #eyes { transform: scaleY(0.45); }
-[data-mood="alert"] .pupil ellipse,
-[data-mood="surprised"] .pupil ellipse { rx: 7; ry: 9.5; }
+/* heavy lids: sleepy, hungry */
+[data-mood="sleepy"] .eye .lid,
+[data-mood="hungry"] .eye .lid { display: inline; }
+[data-mood="alert"] .eye .white,
+[data-mood="surprised"] .eye .white { transform: scale(1.15); }
+[data-mood="alert"] .pupil circle,
+[data-mood="surprised"] .pupil circle { r: 4; }
 
-[data-mood="alert"] .body { fill: #ffb347; }
-[data-mood="sleep"] .body,
-[data-mood="sleepy"] .body { filter: saturate(0.6) brightness(0.92); }
+[data-mood="alert"] .body,
+[data-mood="alert"] .eye .lid { fill: #ffb020; }
+[data-mood="sleep"] #ball,
+[data-mood="sleepy"] #ball { filter: saturate(0.75) brightness(0.95); }
 
 /* body animations that don't need the window to move */
 [data-mood="alert"] #ball-wrap { animation: jiggle 0.5s ease-in-out infinite; }
