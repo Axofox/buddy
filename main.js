@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, screen, ipcMain, Menu, Notification, powerMonitor, shell, Tray, nativeImage,
-  globalShortcut,
+  globalShortcut, net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +10,11 @@ const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
 const { currentActivity, macIdleMs } = require('./activity');
 const { askClaude, cleanAnswer } = require('./ask');
 const { askLocal } = require('./local-ai');
+const { today: todayStats, recapText } = require('./day');
+const { detectFeeling, isQuestion } = require('./feelings');
+const {
+  readBattery, BatteryWatcher, NetWatcher, isOnline,
+} = require('./power');
 const { fetchMeetings } = require('./calendar');
 const {
   findHelper, appleMeetings, appleReminders, mergeMeetings, AccessDenied,
@@ -39,6 +44,9 @@ const DEFAULT_CONFIG = {
   bedtimeRepeatMinutes: 30,
   breakEveryMinutes: 90, // 0 disables stretch-break nudges
   waterEveryMinutes: 60, // 0 disables water nudges
+  battery: true, // warn at 20%, 10% and 5% (false turns it off)
+  batteryFull: true, // say when it's fully charged, so you can unplug
+  internet: true, // say when the internet drops out and comes back
   distraction: { // set to false to turn off
     afterMinutes: 30,
     repeatMinutes: 15,
@@ -47,6 +55,7 @@ const DEFAULT_CONFIG = {
     apps: [],
   },
   typingCheers: true,
+  outfit: 'auto', // "auto" (holidays), "none", or always "halloween" | "christmas" | "newyear" | "valentine"
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
   askWith: 'claude', // "claude", or "local" for a private AI on this computer (Ollama)
@@ -70,7 +79,9 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 let win;
 let config = { ...DEFAULT_CONFIG };
-let state = { lastMorning: '', lastLunch: '', lastDinner: '', lastBedtime: 0 };
+let state = {
+  lastMorning: '', lastLunch: '', lastDinner: '', lastBedtime: 0, lastRecap: '', stats: null,
+};
 let reminders = [];
 
 const files = () => {
@@ -130,7 +141,9 @@ function saveConfigKey(key, value) {
 }
 
 function publicConfig() {
-  return { color: config.color, sounds: config.sounds, name: config.name };
+  return {
+    color: config.color, sounds: config.sounds, name: config.name, outfit: config.outfit,
+  };
 }
 
 const saveState = () => writeJson(files().state, state);
@@ -332,12 +345,15 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking
+// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking | joy | angry
 function say(text, {
   mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false, link = '',
+  button = null, // { label, action }: a button in the bubble that tells us you did it
 } = {}) {
   if (sticky && hidden) setHidden(false); // important things bring the buddy back
-  send('say', { text, mood, duration, sticky, key, sound, urgent, link });
+  send('say', {
+    text, mood, duration, sticky, key, sound, urgent, link, button,
+  });
   if (notify && config.systemNotifications && Notification.isSupported()) {
     new Notification({ title: 'Buddy', body: text, silent: true }).show();
   }
@@ -347,6 +363,18 @@ function say(text, {
 // Daily rhythm: good morning, lunch, dinner, bedtime, stretch breaks, chatter
 
 let activeSince = Date.now();
+let awayCounted = false;
+
+// Today's numbers for the daily recap (saved, so a restart keeps them).
+function stats() {
+  const s = todayStats(state.stats);
+  if (s !== state.stats) state.stats = s;
+  return s;
+}
+function count(field, n = 1) {
+  stats()[field] += n;
+  saveState();
+}
 let lastWaterAt = Date.now();
 let nextChatterAt = Date.now() + 20 * 60000;
 
@@ -378,6 +406,7 @@ function scheduleCheck() {
   const present = idleSec < 90;
 
   send('night', isNight());
+  if (present) awayCounted = false;
 
   // Reminders fire even if you're away; they stay until clicked.
   const due = reminders.filter((r) => r.at <= now.getTime());
@@ -386,12 +415,20 @@ function scheduleCheck() {
     saveReminders();
     refreshTray();
     for (const r of due) {
+      count('reminders');
       say(`⏰ Reminder: ${r.text}`, { mood: 'alert', sticky: true, sound: 'alert', key: `rem:${r.id}`, notify: true });
     }
   }
 
   if (!present) {
-    if (idleSec > 5 * 60) activeSince = Date.now();
+    if (idleSec > 5 * 60) {
+      // Away for 5+ minutes counts as a break (once per time away).
+      if (!awayCounted && !isNight()) {
+        awayCounted = true;
+        count('breaks');
+      }
+      activeSince = Date.now();
+    }
     // A longer break away probably included a drink.
     if (idleSec > 20 * 60) lastWaterAt = Date.now();
     return;
@@ -431,6 +468,14 @@ function scheduleCheck() {
     return;
   }
 
+  if (isNight() && state.lastRecap !== stats().day) {
+    state.lastRecap = stats().day;
+    state.lastBedtime = Date.now();
+    saveState();
+    say(`🌙 ${recapText(stats())}`, { mood: 'love', duration: 25000, key: 'recap', sound: 'happy' });
+    return;
+  }
+
   if (isNight() && Date.now() - state.lastBedtime > (config.bedtimeRepeatMinutes || 30) * 60000) {
     state.lastBedtime = Date.now();
     saveState();
@@ -450,7 +495,7 @@ function scheduleCheck() {
       'Water break! 💧 Your brain is mostly water, you know.',
       'Psst… hydrate 💧',
       'Have a glass of water? 💧 I\'ll wait.',
-    ]), { mood: 'love', duration: 12000, key: 'water' });
+    ]), { mood: 'love', duration: 30000, key: 'water', button: { label: 'Drank it 💧', action: 'water' } });
     return;
   }
 
@@ -460,7 +505,7 @@ function scheduleCheck() {
       'You\'ve been at it a while. Stretch break? 🧘',
       'Blink, breathe, drink some water 💧',
       'Stand up and wiggle for a minute! 🕺',
-    ]), { mood: 'love', duration: 12000, key: 'break' });
+    ]), { mood: 'love', duration: 30000, key: 'break', button: { label: 'Done ✓', action: 'break' } });
     return;
   }
 
@@ -516,6 +561,7 @@ let lastCursor = null;
 let idleWorks = false; // some systems always report 0; don't take that as typing
 
 let typingBusy = false;
+let typedMs = 0;
 let hidWorks = true; // falls back to Electron's idle time if reading it fails
 
 async function inputJustNow() {
@@ -545,6 +591,13 @@ async function sampleTyping() {
   const moved = !lastCursor || c.x !== lastCursor.x || c.y !== lastCursor.y;
   lastCursor = c;
   const r = typing.sample(Date.now(), input, moved || !!drag);
+  if (r.typing) {
+    typedMs += 500;
+    if (typedMs >= 60000) { // save once a minute, not every half second
+      count('typingMs', typedMs);
+      typedMs = 0;
+    }
+  }
   if (r.levelChanged) send('typing', r.level);
   if (r.milestone && config.typingCheers) {
     const lines = {
@@ -574,6 +627,13 @@ function openForm(kind) {
 async function ask(question) {
   const q = String(question || '').trim().slice(0, 2000);
   if (!q) return;
+  // A feeling rather than a question ("yay!!", "ugh I hate this"): Buddy
+  // reacts by itself. No AI, no tokens.
+  const feeling = isQuestion(q) ? null : detectFeeling(q);
+  if (feeling) {
+    react(feeling);
+    return;
+  }
   if (asking) {
     say('One question at a time, I\'m still thinking 🤔', { mood: 'thinking', duration: 3000 });
     return;
@@ -630,6 +690,20 @@ async function askLocally(q, followUp) {
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  }
+}
+
+function react(feeling) {
+  if (feeling === 'joy') {
+    say(pick(['Yaaay! 🎉', 'WOOHOO! 🥳', 'Yesss! 🔥', 'Let\'s gooo! ✨', 'Happy dance! 💃']),
+      { mood: 'joy', duration: 3500, sound: 'happy', key: 'feel' });
+    send('sparks', 24);
+  } else if (feeling === 'angry') {
+    say(pick(['Grr! Who did this to you?! 😤', 'Ugh, rude! 😤', 'I\'ll burn it down for you 🔥😤',
+      'Deep breath… then we fight 😤']), { mood: 'angry', duration: 4000, key: 'feel' });
+  } else {
+    say(pick(['Aww, come here 🫂', 'Sending you a warm glow 💛', 'I\'m right here with you 🫂']),
+      { mood: 'love', duration: 5000, key: 'feel' });
   }
 }
 
@@ -794,6 +868,7 @@ function checkMeetings() {
     } else if (now >= m.start - 30000 && now < m.start + 5 * 60000 && !announced.has(`${m.id}:now`)) {
       announced.set(`${m.id}:now`, now);
       announced.set(`${m.id}:soon`, now);
+      count('meetings');
       say(`📅 ${m.title} is starting now!`,
         { mood: 'alert', sticky: true, sound: 'alert', key, notify: true, link: m.link });
     }
@@ -802,6 +877,7 @@ function checkMeetings() {
   for (const r of appleReminderList) {
     if (now >= r.due && now - r.due < 15 * 60000 && !announced.has(`rem:${r.id}`)) {
       announced.set(`rem:${r.id}`, now);
+      count('reminders');
       say(`⏰ ${r.title}`, { mood: 'alert', sticky: true, sound: 'alert', key: `arem:${r.id}`, notify: true });
     }
   }
@@ -901,6 +977,48 @@ async function addCalendar(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Battery and internet (no AI involved: just the Mac's own reports)
+
+const battery = new BatteryWatcher();
+const network = new NetWatcher();
+let netQuietUntil = 0; // after waking up, Wi-Fi needs a moment to reconnect
+
+async function checkBattery() {
+  if (config.battery === false) return;
+  const e = battery.update(await readBattery());
+  if (!e) return;
+  if (e.type === 'low') {
+    if (e.level >= 20) {
+      say(`Battery at ${e.percent}%. Maybe find your charger soon? 🔋`, { mood: 'sleepy', duration: 10000, key: 'battery' });
+    } else if (e.level >= 10) {
+      say(`I'm at ${e.percent}%, plug me in! 🔌`, { mood: 'sad', sticky: true, sound: 'alert', key: 'battery', notify: true });
+    } else {
+      say(`Only ${e.percent}% left!! Plug in now or your Mac will fall asleep 😵🔌`,
+        { mood: 'alert', sticky: true, sound: 'alert', key: 'battery', notify: true });
+    }
+  } else if (e.type === 'plugged') {
+    send('dismiss', 'battery');
+    say(pick(['Ahh, power! ⚡ Thank you!', 'Mmm, electricity 😋⚡', 'Charging! I feel better already ⚡']),
+      { mood: 'love', duration: 5000, sound: 'happy', key: 'battery' });
+  } else if (e.type === 'full' && config.batteryFull !== false) {
+    say('Fully charged! 🔋 You can unplug me now.', { mood: 'happy', duration: 10000, key: 'battery' });
+  }
+}
+
+async function checkInternet() {
+  if (config.internet === false || Date.now() < netQuietUntil) return;
+  const e = network.update(await isOnline(net));
+  if (e === 'offline') {
+    say(pick(['Wi-Fi is gone 📡', 'Uh oh, no internet 📡', 'The internet ran away 📡💨']),
+      { mood: 'surprised', sticky: true, key: 'internet' });
+  } else if (e === 'online') {
+    send('dismiss', 'internet');
+    say(pick(['Back online! 🎉', 'Internet\'s back 🎉', 'We\'re connected again 📶✨']),
+      { mood: 'excited', duration: 5000, sound: 'happy', key: 'internet' });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Reminders
 
 function addReminder(text, when) {
@@ -928,6 +1046,7 @@ function handleClaudeHook(p) {
       break;
     }
     case 'Stop':
+      count('claude');
       say(pick([`Claude is done${where}! Your turn ✨`, `Claude finished${where} 🎉`]),
         { mood: 'excited', duration: 10000, sound: 'happy', key });
       break;
@@ -1054,9 +1173,22 @@ function menuTemplate() {
       ],
     },
     { label: 'Add reminder…', click: () => openForm('remind') },
+    { label: 'I had some water 💧', click: drankWater },
+    { label: 'Today so far…', click: () => say(recapText(stats(), { final: false }), { mood: 'happy', duration: 15000, key: 'recap' }) },
     { label: 'Reminders', submenu: reminderItems },
     { label: 'Calendar', submenu: meetingMenu() },
     { type: 'separator' },
+    {
+      label: 'Outfit',
+      submenu: [['auto', 'Holidays (automatic)'], ['none', 'No outfit'], ['halloween', '🎃 Pumpkin'],
+        ['christmas', '🎅 Santa hat'], ['newyear', '🥳 Party hat'], ['valentine', '💘 Hearts']].map(([v, label]) => ({
+        label, type: 'radio', checked: (config.outfit || 'auto') === v,
+        click: () => {
+          saveConfigKey('outfit', v);
+          send('config', publicConfig());
+        },
+      })),
+    },
     {
       label: 'Sounds', type: 'checkbox', checked: config.sounds,
       click: (i) => {
@@ -1172,6 +1304,20 @@ ipcMain.on('form-closed', () => {
   formOpen = false;
 });
 ipcMain.on('open-ask', () => openForm('ask'));
+ipcMain.on('bubble-action', (_e, action) => {
+  if (action === 'water') drankWater();
+  if (action === 'break') {
+    count('breaks');
+    say(pick(['Nice stretch! 🙆', 'Ahh, better ✨', 'Good job taking a break 💛']), { mood: 'love', duration: 3000 });
+  }
+});
+
+function drankWater() {
+  count('waters');
+  lastWaterAt = Date.now();
+  const n = stats().waters;
+  say(`${pick(['Glug glug!', 'Refreshing!', 'Yay, water!'])} 💧 That's ${n} today.`, { mood: 'excited', duration: 3500, key: 'water' });
+}
 ipcMain.on('open-link', (_e, url) => openLink(url));
 ipcMain.handle('add-calendar', (_e, url) => addCalendar(url));
 ipcMain.on('ask', (_e, q) => {
@@ -1250,6 +1396,9 @@ function createWindow() {
   setInterval(checkTyping, 500);
   setInterval(checkDistraction, 15000);
   setInterval(checkMeetings, 15000);
+  setInterval(checkBattery, 30000);
+  setInterval(checkInternet, 10000);
+  setTimeout(checkBattery, 5000);
   setInterval(refreshMeetings, 10 * 60000);
   setInterval(refreshApple, 2 * 60000);
 }
@@ -1269,7 +1418,13 @@ app.whenReady().then(() => {
   startServer();
   registerShortcut();
 
+  // React right away when the charger goes in or out.
+  powerMonitor.on('on-ac', () => setTimeout(checkBattery, 1500));
+  powerMonitor.on('on-battery', () => setTimeout(checkBattery, 1500));
   powerMonitor.on('resume', () => {
+    netQuietUntil = Date.now() + 60000;
+    network.reset();
+    setTimeout(checkBattery, 3000);
     setTimeout(scheduleCheck, 2000);
     setTimeout(refreshMeetings, 5000); // the network needs a moment after waking up
     setTimeout(refreshApple, 3000);

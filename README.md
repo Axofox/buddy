@@ -6,12 +6,15 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **says good morning** the first time you're at your computer each day
 - **reminds you to eat** at lunch and dinner time
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
-- **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
+- **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour (click **Drank it 💧** so it counts)
+- **recaps your day** at bedtime: "Today: 3h 10m typing · 4 waters · 2 breaks · 2 meetings. Good day ✨" (right-click → **Today so far…** any time). Breaks count when you click **Done** on a stretch reminder or step away for 5+ minutes
+- **watches your battery and internet**: "I'm at 10%, plug me in! 🔌", "Wi-Fi is gone 📡", "Back online! 🎉"
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
 - **reminds you of meetings** from Apple Calendar or Google Calendar 5 minutes before, with a **Join call** button, and pops up your **Apple Reminders** when they're due
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
 - **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
+- **dresses up for holidays**: a pumpkin friend in October, a Santa hat in December, a party hat at New Year, hearts for Valentine's (right-click → **Outfit** to pick one or turn them off)
 - bounces around, **follows your mouse** if you ask, and its eyes always watch your cursor
 
 ![Buddy's moods](docs/moods.png)
@@ -80,6 +83,10 @@ Buddy reads your calendar through its private iCal link. You don't need a Google
 Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 5 mins (10:00)"*. If the meeting has a Google Meet, Zoom, Teams, Webex or Whereby link, it also shows a **Join call** button. When the meeting starts, it reminds you again. Right-click → **Calendar** lists what's coming up (click one to join), and lets you add more calendar links or disconnect them. If the same calendar is also in Apple Calendar, each meeting still only shows once.
 
 Buddy checks your calendar every 10 minutes. All-day events and cancelled meetings are skipped. Keep the secret address private: anyone who has it can see your calendar. Buddy stores it only in your settings file. Other calendars that offer an `.ics` link (Outlook, iCloud, Fastmail…) work too. Change the warning time with `meetingMinutesBefore`.
+
+### Tell it how you feel
+
+Type a feeling instead of a question into Buddy's box (double-click it): "yay!!", "woohoo I did it 🎉" gets a glowing, jumping **joy** face with sparks; "ugh I hate this", "this stupid thing doesn't work" gets an **angry** face that's on your side; "bad day 😢" gets a warm hug. Buddy recognises these with simple word lists in `feelings.js`, so this uses no AI and no tokens. Anything with a "?" still goes to *Ask me anything*.
 
 ### Ask me anything
 
@@ -181,6 +188,9 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "bedtimeRepeatMinutes": 30,
   "breakEveryMinutes": 90,
   "waterEveryMinutes": 60,
+  "battery": true,
+  "batteryFull": true,
+  "internet": true,
   "distraction": {
     "afterMinutes": 30,
     "repeatMinutes": 15,
@@ -189,6 +199,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
     "apps": []
   },
   "typingCheers": true,
+  "outfit": "auto",
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
   "askWith": "claude",
@@ -205,6 +216,9 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 
 - `name`: what Buddy calls you ("Good morning, Sam!").
 - Set `lunch`, `dinner` or `bedtime` to `""` to turn that nudge off, and `breakEveryMinutes` or `waterEveryMinutes` to `0` to turn off stretch or water breaks.
+- Battery: a gentle note at 20%, a sticky "plug me in!" at 10% and an urgent one at 5% (only while unplugged), a thank-you when you plug in, and "fully charged" at 100%. Turn these off with `"battery": false` or just the last one with `"batteryFull": false`.
+- Internet: Buddy waits about 20 seconds before saying the internet is gone, so short blips stay quiet. To check, it loads Apple's tiny "is the internet working" page (the same one your Mac uses itself) every 10 seconds. Turn it off with `"internet": false`.
+- Only *Ask me anything* uses AI. Everything else Buddy does runs on your computer and uses no tokens.
 - `askShortcut`: the keyboard shortcut for *Ask me anything*. Set it to `""` to turn it off. `askModel`: for example `"haiku"` for faster answers; leave it empty to use your Claude Code default.
 - New settings from updates are added to your file automatically, so you can find them there.
 - After `bedtime`, Buddy also looks sleepy.
@@ -225,6 +239,9 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `feelings.js` | Spots joy, anger and sadness in what you type to Buddy (tested) |
+| `day.js` | Today's numbers and the bedtime recap (tested) |
+| `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
 | `apple.js`, `helpers/eventkit.swift` | Apple Calendar & Reminders (the Swift helper reads them through macOS's EventKit) |
