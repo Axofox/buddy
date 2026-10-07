@@ -109,7 +109,7 @@ Change the sites, add apps (for example `"Steam"`), or adjust the timing in the 
 
 ### Typing
 
-While you type, the flame flickers along and stops hopping around, so it doesn't distract you. After 10, 25, 45 and 90 minutes of typing, it cheers you on. Buddy never reads your keys: it only notices that there's input while the mouse stays still. Scrolling with a trackpad can look like typing too. Turn the cheers off with `"typingCheers": false`.
+While you type, the flame watches your keyboard and stops hopping around. The faster you type, the bigger it gets: a flicker when you start, taller and brighter when you type fast, and after two minutes of fast typing it blazes and throws sparks. After 10, 25, 45 and 90 minutes of typing, it cheers you on. Buddy never reads your keys: it only notices that there's input while the mouse stays still (on a Mac it reads the system's input idle time, no permission needed). Scrolling with a trackpad can look like typing too. Turn the cheers off with `"typingCheers": false`.
 
 ## Connect it to Claude Code
 

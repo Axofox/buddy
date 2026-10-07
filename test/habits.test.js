@@ -75,3 +75,26 @@ test('typing milestones fire once each', () => {
 test('answers are cleaned for the bubble', () => {
   assert.strictEqual(cleanAnswer('## Hi\n**Bold** move\n\n\n\nok\n'), 'Hi\nBold move\n\nok');
 });
+
+test('typing heats up: typing, fast, then on fire after 2 minutes', () => {
+  const t = new TypingTracker();
+  let now = 0;
+  const levels = new Set();
+  // fast, unbroken typing for 3 minutes
+  for (let i = 0; i < 360; i += 1) levels.add(t.sample((now += 500), true, false).level);
+  assert.deepStrictEqual([...levels].sort(), [0, 1, 2, 3]);
+  assert.strictEqual(t.level, 3);
+  // stop: back to 0 within a few seconds, and the streak starts over
+  let r;
+  for (let i = 0; i < 20; i += 1) r = t.sample((now += 500), false, false);
+  assert.strictEqual(r.level, 0);
+  for (let i = 0; i < 40; i += 1) r = t.sample((now += 500), true, false);
+  assert.ok(r.level < 3, 'not on fire again right away');
+});
+
+test('reads macOS input idle time from ioreg output', () => {
+  const { parseHidIdle } = require('../activity');
+  const sample = '  | |   "HIDIdleTime" = 452000000\n  | |   "HIDParameters" = {}';
+  assert.strictEqual(parseHidIdle(sample), 452);
+  assert.strictEqual(parseHidIdle(''), null);
+});

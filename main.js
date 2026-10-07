@@ -7,7 +7,7 @@ const fs = require('fs');
 const http = require('http');
 const { parseWhen, formatWhen, toMinutes } = require('./when');
 const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
-const { currentActivity } = require('./activity');
+const { currentActivity, macIdleMs } = require('./activity');
 const { askClaude, cleanAnswer } = require('./ask');
 const { askLocal } = require('./local-ai');
 const { fetchMeetings } = require('./calendar');
@@ -511,18 +511,41 @@ async function checkDistraction() {
 // ---------------------------------------------------------------------------
 // Typing: the flame flickers while you type and cheers on long streaks.
 
-const typing = new TypingTracker();
+const typing = new TypingTracker({ windowSize: 12 }); // ~6 s, so it reacts quickly
 let lastCursor = null;
 let idleWorks = false; // some systems always report 0; don't take that as typing
 
-function checkTyping() {
+let typingBusy = false;
+let hidWorks = true; // falls back to Electron's idle time if reading it fails
+
+async function inputJustNow() {
+  if (process.platform === 'darwin' && hidWorks) {
+    const ms = await macIdleMs();
+    if (ms !== null) return ms < 700;
+    hidWorks = false;
+  }
+  const idle = idleSeconds();
+  if (idle > 0) idleWorks = true;
+  return idleWorks && idle === 0;
+}
+
+async function checkTyping() {
+  if (typingBusy) return;
+  typingBusy = true;
+  try {
+    await sampleTyping();
+  } finally {
+    typingBusy = false;
+  }
+}
+
+async function sampleTyping() {
+  const input = await inputJustNow();
   const c = screen.getCursorScreenPoint();
   const moved = !lastCursor || c.x !== lastCursor.x || c.y !== lastCursor.y;
   lastCursor = c;
-  const idle = idleSeconds();
-  if (idle > 0) idleWorks = true;
-  const r = typing.sample(Date.now(), idleWorks && idle === 0, moved || !!drag);
-  if (r.changed) send('typing', r.typing);
+  const r = typing.sample(Date.now(), input, moved || !!drag);
+  if (r.levelChanged) send('typing', r.level);
   if (r.milestone && config.typingCheers) {
     const lines = {
       10: ['You\'re on fire! 🔥', 'Look at you go! ⌨️✨', 'Tap tap tap! 🔥'],
@@ -531,6 +554,7 @@ function checkTyping() {
       90: ['90 minutes of typing!! Legend. Take a real break? 🌿'],
     }[r.milestone] || ['🔥'];
     say(pick(lines), { mood: 'excited', duration: 6000, sound: 'happy' });
+    send('sparks', 14); // a little celebration
   }
 }
 
