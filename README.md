@@ -13,6 +13,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
 - **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
+- **dresses up for holidays**: a pumpkin friend in October, a Santa hat in December, a party hat at New Year, hearts for Valentine's (right-click → **Outfit** to pick one or turn them off)
 - bounces around, **follows your mouse** if you ask, and its eyes always watch your cursor
 
 ![Buddy's moods](docs/moods.png)
@@ -193,6 +194,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
     "apps": []
   },
   "typingCheers": true,
+  "outfit": "auto",
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
   "askWith": "claude",

@@ -45,6 +45,17 @@ html, body {
   fill: var(--body);
   transition: fill 0.4s;
 }
+.tips {
+  fill: url(#tipglow);
+  pointer-events: none;
+  filter: drop-shadow(0 -1px 2.5px rgba(255, 190, 80, 0.75));
+}
+[data-mood="alert"] .tips { opacity: 0.5; }
+.outfit { display: none; }
+[data-outfit="halloween"] #outfit-halloween,
+[data-outfit="christmas"] #outfit-christmas,
+[data-outfit="newyear"] #outfit-newyear,
+[data-outfit="valentine"] #outfit-valentine { display: inline; }
 .eye .white { fill: #fff; }
 .pupil circle { fill: var(--ink); }
 .eye .lid { fill: var(--body); display: none; transition: fill 0.4s; }
