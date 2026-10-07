@@ -1,0 +1,14 @@
+{
+  "name": "buddy",
+  "version": "0.1.0",
+  "description": "A little bouncing desktop buddy that tells you when Claude needs you, reminds you of things and says good morning.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1"
+  }
+}
