@@ -411,5 +411,6 @@ buddy.on('config', (c) => {
   applyOutfit();
 });
 
+applyPet();
 renderMood();
 blinkLoop();

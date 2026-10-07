@@ -4,13 +4,7 @@
 // once whether Buddy may "control" your browser; if you say no, Buddy only
 // knows the app name. Linux: uses xdotool if installed (window title only).
 
-const { execFile } = require('child_process');
-
-function run(cmd, args) {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 3000 }, (err, out) => resolve(err ? '' : String(out).trim()));
-  });
-}
+const { run } = require('./sys');
 
 // AppleScript that returns the front tab's URL, per browser family.
 const MAC_BROWSERS = {

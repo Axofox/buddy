@@ -1,13 +1,12 @@
 // "Ask me anything" with a local AI through Ollama (https://ollama.com).
 // Everything stays on this computer: Ollama listens on localhost only.
 
+const { PERSONA } = require('./ask');
+
 const OLLAMA = process.env.BUDDY_OLLAMA_URL || 'http://127.0.0.1:11434';
 
-const SYSTEM = [
-  'You are Buddy, a tiny friendly flame that lives on the user\'s desktop.',
-  'Your answer appears in a small speech bubble, so keep it short: 1 to 4 sentences,',
-  'plain text only, no markdown. If you are not sure about something, say so.',
-].join(' ');
+// Small local models make things up more easily, so ask for honesty.
+const SYSTEM = `${PERSONA} If you are not sure about something, say so.`;
 
 // history: earlier [{ role, content }] turns, for follow-up questions.
 // Resolves { ok, text, notRunning?, noModel? } and never rejects.
