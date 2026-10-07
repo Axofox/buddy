@@ -1,19 +1,25 @@
 const {
-  app, BrowserWindow, screen, ipcMain, Menu, Notification, powerMonitor, shell,
+  app, BrowserWindow, screen, ipcMain, Menu, Notification, powerMonitor, shell, Tray, nativeImage,
+  globalShortcut,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { parseWhen, formatWhen, toMinutes } = require('./when');
+const { matchDistraction, FocusTracker, TypingTracker } = require('./habits');
+const { currentActivity } = require('./activity');
+const { askClaude } = require('./ask');
 
 // ---------------------------------------------------------------------------
 // Geometry: the window is a small transparent box. The ball sits at the bottom
-// centre, the speech bubble floats above it.
-const W = 220;
-const H = 170;
+// centre, the speech bubble floats above it (tall enough for Claude's answers).
+const W = 260;
+const H = 250;
 const BALL = 48;
 const BX = W / 2; // ball centre inside the window
 const BY = H - BALL / 2 - 2;
+const NEAR = 110; // px: closer than this, the buddy stops hopping so you can catch it
+const NEAR_FOLLOW = 60; // same in Follow mode, where it normally sits ~55px from the cursor
 
 const DEFAULT_CONFIG = {
   name: '', // what the buddy calls you, e.g. "Christine"
@@ -27,6 +33,17 @@ const DEFAULT_CONFIG = {
   bedtimeUntil: '04:00',
   bedtimeRepeatMinutes: 30,
   breakEveryMinutes: 90, // 0 disables stretch-break nudges
+  waterEveryMinutes: 60, // 0 disables water nudges
+  distraction: { // set to false to turn off
+    afterMinutes: 30,
+    repeatMinutes: 15,
+    sites: ['youtube.com', 'instagram.com', 'tiktok.com', 'facebook.com', 'x.com', 'twitter.com',
+      'reddit.com', 'netflix.com', 'twitch.tv', 'pinterest.com'],
+    apps: [],
+  },
+  typingCheers: true,
+  askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
+  askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
   idleChatter: true,
   systemNotifications: true, // also show an OS notification for Claude alerts and reminders
   sounds: true,
@@ -74,10 +91,16 @@ function writeJson(file, data) {
 function loadConfig() {
   const f = files().config;
   if (!fs.existsSync(f)) writeJson(f, DEFAULT_CONFIG);
-  config = { ...DEFAULT_CONFIG, ...readJson(f, {}) };
+  const saved = readJson(f, null);
+  config = { ...DEFAULT_CONFIG, ...(saved || {}) };
+  // Show settings added in newer versions in the file, so you can find them.
+  if (saved && Object.keys(DEFAULT_CONFIG).some((k) => !(k in saved))) {
+    writeJson(f, { ...DEFAULT_CONFIG, ...saved });
+  }
   // The first version saved its blue as everyone's colour; move them to the new default.
   if (config.color === '#6ec6ff') config.color = DEFAULT_CONFIG.color;
   if (win) win.webContents.send('config', publicConfig());
+  registerShortcut();
 }
 
 function publicConfig() {
@@ -165,9 +188,17 @@ function physicsStep(now) {
   }
 }
 
-function followStep(cursor, now) {
+function followStep(cursor, now, near) {
   // Hover a little below-right of the cursor, like a pet tagging along.
+  // Once you reach for it, it holds still so you can click it.
   const b = bounds();
+  if (near) {
+    vel.x *= 0.7;
+    vel.y *= 0.7;
+    pos.x += vel.x;
+    pos.y += vel.y;
+    return;
+  }
   const tx = cursor.x + 40 - BX;
   const ty = cursor.y + 36 - BY;
   const dx = tx - pos.x;
@@ -186,6 +217,9 @@ function tick() {
   if (!win || win.isDestroyed()) return;
   const now = Date.now();
   const cursor = screen.getCursorScreenPoint();
+  // Is the mouse reaching for the buddy? Then don't run away from it.
+  const dist = Math.hypot(cursor.x - (pos.x + BX), cursor.y - (pos.y + BY));
+  const near = dist < NEAR;
 
   if (drag) {
     const nx = cursor.x - drag.offX;
@@ -198,9 +232,11 @@ function tick() {
     vel.x = 0;
     vel.y = 0;
   } else if (mode === 'follow') {
-    followStep(cursor, now);
+    followStep(cursor, now, dist < NEAR_FOLLOW);
   } else if (mode === 'bounce') {
     physicsStep(now);
+    // Hold still while you reach for it, or while you're typing away.
+    if (grounded && (near || typing.typing)) nextHopAt = Math.max(nextHopAt, now + 800);
     if (grounded && now > nextHopAt) {
       hop(alerting ? 1.3 : 0.6 + Math.random() * 0.6, alerting ? cursor.x : null);
     }
@@ -228,7 +264,7 @@ function tick() {
   // of the transparent window never gets in your way.
   const lx = cursor.x - rx;
   const ly = cursor.y - ry;
-  const overBall = Math.hypot(lx - BX, ly - BY) <= BALL / 2 + 4;
+  const overBall = Math.hypot(lx - BX, ly - BY) <= BALL / 2 + 8;
   const overBubble = bubbleRect
     && lx >= bubbleRect.x && lx <= bubbleRect.x + bubbleRect.w
     && ly >= bubbleRect.y && ly <= bubbleRect.y + bubbleRect.h;
@@ -244,6 +280,7 @@ function setMode(m) {
   vel = { x: 0, y: 0 };
   send('mode', mode);
   if (m === 'bounce') nextHopAt = Date.now() + 500;
+  refreshTray();
 }
 
 // ---------------------------------------------------------------------------
@@ -261,9 +298,11 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised
-function say(text, { mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false } = {}) {
-  send('say', { text, mood, duration, sticky, key, sound });
+// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking
+function say(text, {
+  mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false,
+} = {}) {
+  send('say', { text, mood, duration, sticky, key, sound, urgent });
   if (notify && config.systemNotifications && Notification.isSupported()) {
     new Notification({ title: 'Buddy', body: text, silent: true }).show();
   }
@@ -273,6 +312,7 @@ function say(text, { mood = 'happy', duration = 6000, sticky = false, key = null
 // Daily rhythm: good morning, lunch, dinner, bedtime, stretch breaks, chatter
 
 let activeSince = Date.now();
+let lastWaterAt = Date.now();
 let nextChatterAt = Date.now() + 20 * 60000;
 
 function today() {
@@ -309,6 +349,7 @@ function scheduleCheck() {
   if (due.length) {
     reminders = reminders.filter((r) => r.at > now.getTime());
     saveReminders();
+    refreshTray();
     for (const r of due) {
       say(`⏰ Reminder: ${r.text}`, { mood: 'alert', sticky: true, sound: 'alert', key: `rem:${r.id}`, notify: true });
     }
@@ -316,6 +357,8 @@ function scheduleCheck() {
 
   if (!present) {
     if (idleSec > 5 * 60) activeSince = Date.now();
+    // A longer break away probably included a drink.
+    if (idleSec > 20 * 60) lastWaterAt = Date.now();
     return;
   }
 
@@ -365,6 +408,17 @@ function scheduleCheck() {
     return;
   }
 
+  if (config.waterEveryMinutes > 0 && Date.now() - lastWaterAt > config.waterEveryMinutes * 60000) {
+    lastWaterAt = Date.now();
+    say(pick([
+      'Sip some water 💧',
+      'Water break! 💧 Your brain is mostly water, you know.',
+      'Psst… hydrate 💧',
+      'Have a glass of water? 💧 I\'ll wait.',
+    ]), { mood: 'love', duration: 12000, key: 'water' });
+    return;
+  }
+
   if (config.breakEveryMinutes > 0 && Date.now() - activeSince > config.breakEveryMinutes * 60000) {
     activeSince = Date.now();
     say(pick([
@@ -385,6 +439,122 @@ function scheduleCheck() {
 }
 
 // ---------------------------------------------------------------------------
+// Distractions: a gentle "hey 👀" after a long stretch on YouTube & co.
+
+let focus = null;
+let focusKey = '';
+
+function idleSeconds() {
+  try {
+    return powerMonitor.getSystemIdleTime();
+  } catch {
+    return 0;
+  }
+}
+
+async function checkDistraction() {
+  const d = config.distraction;
+  if (!d) return;
+  const key = `${d.afterMinutes}/${d.repeatMinutes}`;
+  if (!focus || key !== focusKey) {
+    focus = new FocusTracker(d);
+    focusKey = key;
+  }
+  // Away from the computer counts as not distracted.
+  const label = idleSeconds() < 10 * 60 ? matchDistraction(await currentActivity(), d) : null;
+  const nudge = focus.sample(Date.now(), label);
+  if (!nudge) return;
+  const m = nudge.minutes;
+  say(pick([
+    `${m} minutes of ${nudge.label}… 👀`,
+    `Hey${name()}, you've been on ${nudge.label} for ${m} min 👀`,
+    `Psst. ${nudge.label}, ${m} min. Back to it? 👀`,
+    `Is this still the plan? ${m} min on ${nudge.label} 👀`,
+  ]), { mood: 'sly', duration: 12000, key: 'focus', sound: 'poke' });
+}
+
+// ---------------------------------------------------------------------------
+// Typing: the flame flickers while you type and cheers on long streaks.
+
+const typing = new TypingTracker();
+let lastCursor = null;
+let idleWorks = false; // some systems always report 0; don't take that as typing
+
+function checkTyping() {
+  const c = screen.getCursorScreenPoint();
+  const moved = !lastCursor || c.x !== lastCursor.x || c.y !== lastCursor.y;
+  lastCursor = c;
+  const idle = idleSeconds();
+  if (idle > 0) idleWorks = true;
+  const r = typing.sample(Date.now(), idleWorks && idle === 0, moved || !!drag);
+  if (r.changed) send('typing', r.typing);
+  if (r.milestone && config.typingCheers) {
+    const lines = {
+      10: ['You\'re on fire! 🔥', 'Look at you go! ⌨️✨', 'Tap tap tap! 🔥'],
+      25: ['25 minutes of typing! Unstoppable 🔥', 'Wow, you\'re in the zone ✨'],
+      45: ['45 minutes of typing! 🔥 Shake out your hands?', 'Such focus! Roll your shoulders a bit 🙆'],
+      90: ['90 minutes of typing!! Legend. Take a real break? 🌿'],
+    }[r.milestone] || ['🔥'];
+    say(pick(lines), { mood: 'excited', duration: 6000, sound: 'happy' });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ask me anything (answers come from Claude Code)
+
+let lastAskAt = 0;
+let asking = false;
+
+function openForm(kind) {
+  formOpen = true;
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  win.focus();
+  send('open-form', kind);
+}
+
+async function ask(question) {
+  const q = String(question || '').trim().slice(0, 2000);
+  if (!q) return;
+  if (asking) {
+    say('One question at a time, I\'m still thinking 🤔', { mood: 'thinking', duration: 3000 });
+    return;
+  }
+  asking = true;
+  say(pick(['Hmm, let me think… 🤔', 'Thinking… 🤔', 'Ooh, good one. One sec… 🤔']),
+    { mood: 'thinking', duration: 150000, key: 'ask', urgent: true });
+  const followUp = Date.now() - lastAskAt < 10 * 60000;
+  const res = await askClaude(q, {
+    cwd: path.join(app.getPath('userData'), 'ask'),
+    followUp,
+    model: config.askModel,
+  });
+  asking = false;
+  lastAskAt = Date.now();
+  if (res.ok) {
+    say(res.text, { mood: 'happy', sticky: true, sound: 'happy', key: 'ask', urgent: true });
+  } else if (res.missing) {
+    say('I can\'t find Claude Code on this computer 😢 Install it, then ask me again.',
+      { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  } else {
+    say(`Hmm, that didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  }
+}
+
+let shortcut = '';
+function registerShortcut() {
+  if (!app.isReady() || config.askShortcut === shortcut) return;
+  if (shortcut) globalShortcut.unregister(shortcut);
+  shortcut = '';
+  if (!config.askShortcut) return;
+  try {
+    if (globalShortcut.register(config.askShortcut, () => win && openForm('ask'))) shortcut = config.askShortcut;
+    else console.error('shortcut taken:', config.askShortcut);
+  } catch (e) {
+    console.error('bad shortcut:', config.askShortcut, e.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Reminders
 
 function addReminder(text, when) {
@@ -394,6 +564,7 @@ function addReminder(text, when) {
   reminders.push(r);
   reminders.sort((a, b) => a.at - b.at);
   saveReminders();
+  refreshTray();
   return r;
 }
 
@@ -489,7 +660,7 @@ function startServer() {
 // ---------------------------------------------------------------------------
 // Menu
 
-function showMenu() {
+function menuTemplate() {
   const reminderItems = reminders.length
     ? reminders.map((r) => ({
       label: `${formatWhen(r.at)} – ${r.text}`.slice(0, 60),
@@ -498,6 +669,7 @@ function showMenu() {
         click: () => {
           reminders = reminders.filter((x) => x.id !== r.id);
           saveReminders();
+          refreshTray();
         },
       }],
     }))
@@ -514,13 +686,12 @@ function showMenu() {
     modeItem('sleep', 'Sleep'),
     { type: 'separator' },
     {
-      label: 'Add reminder…',
-      click: () => {
-        formOpen = true;
-        win.focus();
-        send('open-reminder-form');
-      },
+      label: 'Ask me anything…',
+      accelerator: config.askShortcut || undefined,
+      registerAccelerator: false,
+      click: () => openForm('ask'),
     },
+    { label: 'Add reminder…', click: () => openForm('remind') },
     { label: 'Reminders', submenu: reminderItems },
     { type: 'separator' },
     {
@@ -545,7 +716,40 @@ function showMenu() {
     { type: 'separator' },
     { label: 'Bye for now (quit)', click: () => app.quit() },
   );
-  Menu.buildFromTemplate(items).popup({ window: win });
+  return items;
+}
+
+function showMenu() {
+  Menu.buildFromTemplate(menuTemplate()).popup({ window: win });
+}
+
+// A menu bar / tray icon with the same menu, so you can always reach it,
+// even when the buddy is busy hopping around.
+let tray = null;
+
+function createTray() {
+  const mac = process.platform === 'darwin';
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', mac ? 'trayTemplate.png' : 'tray.png'));
+  if (mac) icon.setTemplateImage(true);
+  try {
+    tray = new Tray(icon);
+  } catch (e) {
+    console.error('no tray:', e.message);
+    return;
+  }
+  tray.setToolTip('Buddy');
+  if (process.platform === 'linux') {
+    refreshTray();
+  } else {
+    const open = () => tray.popUpContextMenu(Menu.buildFromTemplate(menuTemplate()));
+    tray.on('click', open);
+    tray.on('right-click', open);
+  }
+}
+
+// Linux trays can't build the menu on click, so keep it up to date instead.
+function refreshTray() {
+  if (tray && process.platform === 'linux') tray.setContextMenu(Menu.buildFromTemplate(menuTemplate()));
 }
 
 // ---------------------------------------------------------------------------
@@ -588,6 +792,11 @@ ipcMain.on('alerting', (_e, on) => {
 });
 ipcMain.on('form-closed', () => {
   formOpen = false;
+});
+ipcMain.on('open-ask', () => openForm('ask'));
+ipcMain.on('ask', (_e, q) => {
+  formOpen = false;
+  ask(q);
 });
 ipcMain.handle('add-reminder', (_e, { text, when }) => {
   const r = addReminder(text, when);
@@ -639,6 +848,8 @@ function createWindow() {
 
   setInterval(tick, 16);
   setInterval(scheduleCheck, 20000);
+  setInterval(checkTyping, 500);
+  setInterval(checkDistraction, 15000);
 }
 
 app.whenReady().then(() => {
@@ -652,11 +863,15 @@ app.whenReady().then(() => {
     /* watching is a nicety */
   }
   createWindow();
+  createTray();
   startServer();
+  registerShortcut();
 
   powerMonitor.on('resume', () => setTimeout(scheduleCheck, 2000));
   powerMonitor.on('unlock-screen', () => setTimeout(scheduleCheck, 2000));
 });
+
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.on('second-instance', () => say('I\'m already here! 👀', { mood: 'surprised', duration: 3000 }));
 app.on('window-all-closed', () => app.quit());

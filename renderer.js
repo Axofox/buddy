@@ -8,6 +8,8 @@ const pupils = document.querySelectorAll('.pupil');
 const bubble = $('bubble');
 const bubbleText = $('bubble-text');
 const form = $('remind-form');
+const askForm = $('ask-form');
+const forms = { remind: form, ask: askForm };
 
 let mode = 'bounce';
 let night = false;
@@ -122,7 +124,8 @@ function beep(kind) {
 
 function reportBubble() {
   requestAnimationFrame(() => {
-    const el = !form.classList.contains('hidden') ? form : (!bubble.classList.contains('hidden') ? bubble : null);
+    const openForm = Object.values(forms).find((f) => !f.classList.contains('hidden'));
+    const el = openForm || (!bubble.classList.contains('hidden') ? bubble : null);
     if (!el) return buddy.send('bubble-rect', null);
     const r = el.getBoundingClientRect();
     return buddy.send('bubble-rect', { x: r.left, y: r.top, w: r.width, h: r.height + 10 });
@@ -133,7 +136,9 @@ function show(msg) {
   current = msg;
   clearTimeout(hideTimer);
   bubbleText.textContent = msg.text;
+  bubbleText.scrollTop = 0;
   bubble.classList.toggle('sticky', !!msg.sticky);
+  bubble.classList.toggle('long', msg.text.length > 90);
   bubble.classList.remove('hidden');
   // restart the pop animation
   bubble.style.animation = 'none';
@@ -164,8 +169,13 @@ buddy.on('say', (msg) => {
     queue = queue.filter((m) => m.key !== msg.key);
     if (current && current.key === msg.key) return show(msg);
   }
-  // Anything replaces a casual line; nothing interrupts something important.
+  // Anything replaces a casual line; nothing interrupts something important,
+  // except an answer to something you just asked (the other message waits).
   if (!current || !current.sticky) return show(msg);
+  if (msg.urgent) {
+    queue.unshift(current);
+    return show(msg);
+  }
   queue.push(msg);
   return undefined;
 });
@@ -203,6 +213,8 @@ buddy.on('poked', () => {
   else flash(Math.random() < 0.5 ? 'excited' : 'surprised', 900);
 });
 
+ballWrap.addEventListener('dblclick', () => buddy.send('open-ask'));
+
 ballWrap.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   buddy.send('drag-start', { x: e.clientX, y: e.clientY });
@@ -215,20 +227,27 @@ window.addEventListener('contextmenu', (e) => {
   buddy.send('menu');
 });
 
-// ---------- reminder form ----------
+// ---------- reminder + ask forms ----------
 
-buddy.on('open-reminder-form', () => {
-  form.classList.remove('hidden');
+buddy.on('open-form', (kind) => {
+  Object.values(forms).forEach((f) => f.classList.add('hidden'));
   bubble.classList.add('hidden');
-  $('remind-error').textContent = '';
-  $('remind-text').value = '';
-  $('remind-when').value = '';
-  $('remind-text').focus();
+  if (kind === 'ask') {
+    askForm.classList.remove('hidden');
+    $('ask-text').value = '';
+    $('ask-text').focus();
+  } else {
+    form.classList.remove('hidden');
+    $('remind-error').textContent = '';
+    $('remind-text').value = '';
+    $('remind-when').value = '';
+    $('remind-text').focus();
+  }
   reportBubble();
 });
 
 function closeForm() {
-  form.classList.add('hidden');
+  Object.values(forms).forEach((f) => f.classList.add('hidden'));
   buddy.send('form-closed');
   if (current) bubble.classList.remove('hidden');
   reportBubble();
@@ -248,10 +267,20 @@ form.addEventListener('submit', async (e) => {
   return closeForm();
 });
 
-form.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeForm();
+askForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = $('ask-text').value.trim();
+  if (!q) return $('ask-text').focus();
+  closeForm();
+  return buddy.send('ask', q);
 });
-form.addEventListener('mousedown', (e) => e.stopPropagation());
+
+Object.values(forms).forEach((f) => {
+  f.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeForm();
+  });
+  f.addEventListener('mousedown', (e) => e.stopPropagation());
+});
 
 // ---------- state from main ----------
 
@@ -259,6 +288,7 @@ buddy.on('mode', (m) => {
   mode = m;
   renderMood();
 });
+buddy.on('typing', (on) => document.body.classList.toggle('typing', !!on));
 buddy.on('night', (n) => {
   night = n;
   renderMood();
