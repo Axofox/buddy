@@ -8,6 +8,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
 - **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
+- **reminds you of meetings** from your Google Calendar 5 minutes before, with a **Join call** button
 - **answers questions**: double-click it (or press ⌘⇧Space / Ctrl+Shift+Space) and ask anything. Answers come from Claude Code.
 - **notices distractions**: after 30 minutes on YouTube, Instagram, TikTok & co. it gives you a gentle "hey 👀"
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
@@ -35,7 +36,7 @@ The flame appears near the bottom-right of your screen and says hi. A little fla
 | **Click** it | It giggles. Poke it a lot and it gets grumpy. |
 | **Double-click** it | Opens *Ask me anything*. |
 | **Drag and throw** it | It flies and bounces off the screen edges. |
-| **Right-click** it, or click the **menu bar icon** | Menu: *Bounce around*, *Follow me*, *Sit still*, *Sleep*, *Ask me anything…*, *Add reminder…*, your reminders list, sounds, start at login, settings, quit |
+| **Right-click** it, or click the **menu bar icon** | Menu: *Bounce around*, *Follow me*, *Sit still*, *Sleep*, *Ask me anything…*, *Add reminder…*, your reminders, your meetings, sounds, start at login, settings, quit |
 | **Click a bubble** with an orange border | Dismisses it. Important messages stay until you click them. |
 
 When something important comes in (Claude needs you, or a reminder is due), it turns golden, shows a **!**, jiggles, plays a little sound, and in *Bounce* mode hops toward your mouse until you click it. Whenever your mouse gets close, it holds still so you can catch it.
@@ -48,11 +49,24 @@ You can write the time as `10m`, `45 min`, `1h30`, `in 2 hours`, `14:30`, `2pm` 
 
 Reminders are saved, so they survive a restart. To cancel one, right-click → **Reminders**.
 
+### Meetings from Google Calendar
+
+Buddy reads your calendar through its private iCal link. You don't need a Google login or any setup on Google's side.
+
+1. Open [Google Calendar](https://calendar.google.com) in your browser.
+2. In the list on the left, hover over your calendar → **⋮** → **Settings and sharing**.
+3. Scroll down to **Integrate calendar** and copy the **Secret address in iCal format** (it ends in `basic.ics`).
+4. Right-click Buddy → **Meetings** → **Connect Google Calendar…**, paste it, and press Enter.
+
+Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 5 mins (10:00)"*. If the meeting has a Google Meet, Zoom, Teams, Webex or Whereby link, it also shows a **Join call** button. When the meeting starts, it reminds you again. Right-click → **Meetings** lists what's coming up (click one to join), and lets you connect more calendars or disconnect them.
+
+Buddy checks your calendar every 10 minutes. All-day events and cancelled meetings are skipped. Keep the secret address private: anyone who has it can see your calendar. Buddy stores it only in your settings file. Other calendars that offer an `.ics` link (Outlook, iCloud, Fastmail…) work too. Change the warning time with `meetingMinutesBefore`.
+
 ### Ask me anything
 
 Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Windows/Linux), or right-click → **Ask me anything…**. Type your question and press Enter.
 
-Buddy passes the question to [Claude Code](https://claude.com/claude-code) (`claude -p`), so you need Claude Code installed and logged in. Nothing else to set up. Answers are short, and Claude can search the web when it needs to. If you ask again within 10 minutes, Claude remembers the earlier question, so follow-ups like "and in French?" work. Click the answer to close it.
+Buddy passes the question to [Claude Code](https://claude.com/claude-code) (`claude -p`), so you need the Claude Code command line installed and logged in. Nothing else to set up. If Buddy says it can't find Claude Code, open Terminal and run `claude --version`. If that says "command not found", install it with `curl -fsSL https://claude.ai/install.sh | bash`, run `claude` once to log in, then ask Buddy again. Answers are short, and Claude can search the web when it needs to. If you ask again within 10 minutes, Claude remembers the earlier question, so follow-ups like "and in French?" work. Click the answer to close it.
 
 ### Distraction nudges
 
@@ -148,6 +162,8 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "typingCheers": true,
   "askShortcut": "CommandOrControl+Shift+Space",
   "askModel": "",
+  "calendars": [],
+  "meetingMinutesBefore": 5,
   "idleChatter": true,
   "systemNotifications": true,
   "sounds": true
@@ -176,6 +192,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
 | `activity.js` | Which app and website are in front |
 | `habits.js` | Distraction and typing logic (tested) |
 | `assets/` | Menu bar icons |

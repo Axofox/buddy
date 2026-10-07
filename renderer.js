@@ -9,7 +9,9 @@ const bubble = $('bubble');
 const bubbleText = $('bubble-text');
 const form = $('remind-form');
 const askForm = $('ask-form');
-const forms = { remind: form, ask: askForm };
+const calForm = $('cal-form');
+const joinBtn = $('bubble-join');
+const forms = { remind: form, ask: askForm, calendar: calForm };
 
 let mode = 'bounce';
 let night = false;
@@ -136,6 +138,7 @@ function show(msg) {
   current = msg;
   clearTimeout(hideTimer);
   bubbleText.textContent = msg.text;
+  joinBtn.classList.toggle('hidden', !msg.link);
   bubbleText.scrollTop = 0;
   bubble.classList.toggle('sticky', !!msg.sticky);
   bubble.classList.toggle('long', msg.text.length > 90);
@@ -187,7 +190,9 @@ buddy.on('dismiss', (key) => {
 
 bubble.addEventListener('mousedown', (e) => {
   e.stopPropagation();
-  if (e.button === 0) next();
+  if (e.button !== 0) return;
+  if (e.target === joinBtn && current && current.link) buddy.send('open-link', current.link);
+  next();
 });
 
 // ---------- ball interaction ----------
@@ -236,6 +241,11 @@ buddy.on('open-form', (kind) => {
     askForm.classList.remove('hidden');
     $('ask-text').value = '';
     $('ask-text').focus();
+  } else if (kind === 'calendar') {
+    calForm.classList.remove('hidden');
+    $('cal-error').textContent = '';
+    $('cal-url').value = '';
+    $('cal-url').focus();
   } else {
     form.classList.remove('hidden');
     $('remind-error').textContent = '';
@@ -273,6 +283,28 @@ askForm.addEventListener('submit', (e) => {
   if (!q) return $('ask-text').focus();
   closeForm();
   return buddy.send('ask', q);
+});
+
+calForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = $('cal-url').value.trim();
+  if (!url) return $('cal-url').focus();
+  const btn = calForm.querySelector('button');
+  btn.disabled = true;
+  $('cal-error').textContent = '';
+  const res = await buddy.addCalendar(url);
+  btn.disabled = false;
+  if (!res.ok) {
+    $('cal-error').textContent = res.error;
+    reportBubble();
+    return $('cal-url').focus();
+  }
+  return closeForm();
+});
+
+$('cal-help').addEventListener('click', (e) => {
+  e.preventDefault();
+  buddy.send('open-link', 'https://support.google.com/calendar/answer/37648?hl=en#zippy=%2Cget-your-calendar-view-only');
 });
 
 Object.values(forms).forEach((f) => {

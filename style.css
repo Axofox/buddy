@@ -227,5 +227,22 @@ body.typing #ball { animation: flicker 0.32s ease-in-out infinite alternate; }
   font-weight: 700;
   cursor: pointer;
 }
-#remind-error { font-size: 11px; color: #d6453d; min-height: 0; }
-#remind-error:empty { display: none; }
+.error { font-size: 11px; color: #d6453d; }
+.error:empty { display: none; }
+.panel-title { font-size: 12px; font-weight: 600; color: var(--ink); }
+#cal-help { font-size: 11px; color: #888; }
+#cal-form button:disabled { opacity: 0.5; cursor: wait; }
+
+#bubble-join {
+  display: block;
+  margin: 6px auto 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 14px;
+  background: var(--body);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
