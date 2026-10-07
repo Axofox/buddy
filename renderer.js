@@ -375,9 +375,38 @@ function applyOutfit() {
 }
 setInterval(applyOutfit, 30 * 60000); // pick up a new day
 
+// ---------- the growing pet: its look at each stage (shapes.js) ----------
+
+let configColor = '#ee5a3a';
+let pet = { life: 'flame', stage: 3 };
+
+function applyPet() {
+  const def = (SHAPES[pet.life] || SHAPES.flame)[pet.stage] || SHAPES.flame[3];
+  const { rest, frames } = shapePaths(def);
+  $('flame').setAttribute('d', rest);
+  $('sway').setAttribute('values', frames.join(';'));
+  $('sway').setAttribute('keyTimes', frames.length === 5 ? '0;0.25;0.5;0.75;1' : '0;1');
+  $('sway').setAttribute('keySplines', frames.length === 5
+    ? '0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1' : '0.45 0 0.55 1');
+  $('extra-back').innerHTML = def.back || '';
+  $('extra-front').innerHTML = def.front || '';
+  $('face').setAttribute('transform', def.face || '');
+  $('head').setAttribute('transform', `translate(0 ${(def.top ?? 3) - 3})`);
+  root.style.setProperty('--grow', String(def.grow || 1));
+  root.style.setProperty('--body', pet.life === 'flame' ? configColor : (def.color || configColor));
+  document.body.dataset.life = pet.life;
+  document.body.dataset.anim = def.anim || (pet.life === 'flame' || pet.life === 'leaf' ? '' : 'breathe');
+}
+
+buddy.on('pet', (p) => {
+  pet = { life: p.life, stage: p.stage };
+  applyPet();
+});
+
 buddy.on('config', (c) => {
   sounds = c.sounds !== false;
-  if (c.color) root.style.setProperty('--body', c.color);
+  if (c.color) configColor = c.color;
+  applyPet();
   outfitSetting = c.outfit || 'auto';
   applyOutfit();
 });
