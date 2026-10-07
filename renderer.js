@@ -138,7 +138,10 @@ function show(msg) {
   current = msg;
   clearTimeout(hideTimer);
   bubbleText.textContent = msg.text;
-  joinBtn.classList.toggle('hidden', !msg.link);
+  // One button per bubble: "Join call" for meetings, or e.g. "Drank it 💧".
+  const btn = msg.link ? { label: 'Join call' } : msg.button;
+  joinBtn.classList.toggle('hidden', !btn);
+  if (btn) joinBtn.textContent = btn.label;
   bubbleText.scrollTop = 0;
   bubble.classList.toggle('sticky', !!msg.sticky);
   bubble.classList.toggle('long', msg.text.length > 90);
@@ -191,7 +194,10 @@ buddy.on('dismiss', (key) => {
 bubble.addEventListener('mousedown', (e) => {
   e.stopPropagation();
   if (e.button !== 0) return;
-  if (e.target === joinBtn && current && current.link) buddy.send('open-link', current.link);
+  if (e.target === joinBtn && current) {
+    if (current.link) buddy.send('open-link', current.link);
+    else if (current.button) buddy.send('bubble-action', current.button.action);
+  }
   next();
 });
 

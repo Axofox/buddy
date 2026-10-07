@@ -6,7 +6,8 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **says good morning** the first time you're at your computer each day
 - **reminds you to eat** at lunch and dinner time
 - **tells you when it's late** and keeps nudging every 30 minutes until you go to bed
-- **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour
+- **suggests a stretch break** when you've been at it for a long time, and **reminds you to drink water** every hour (click **Drank it 💧** so it counts)
+- **recaps your day** at bedtime: "Today: 3h 10m typing · 4 waters · 2 breaks · 2 meetings. Good day ✨" (right-click → **Today so far…** any time). Breaks count when you click **Done** on a stretch reminder or step away for 5+ minutes
 - **watches your battery and internet**: "I'm at 10%, plug me in! 🔌", "Wi-Fi is gone 📡", "Back online! 🎉"
 - **remembers reminders** you give it ("tea in 10m", "call mom at 18:30")
 - **reminds you of meetings** from Apple Calendar or Google Calendar 5 minutes before, with a **Join call** button, and pops up your **Apple Reminders** when they're due
@@ -234,6 +235,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `day.js` | Today's numbers and the bedtime recap (tested) |
 | `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
 | `calendar.js` | Reads meetings and call links from calendar (.ics) links (tested) |
