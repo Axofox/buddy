@@ -11,6 +11,7 @@ const { currentActivity, macIdleMs } = require('./activity');
 const { askClaude, cleanAnswer } = require('./ask');
 const { askLocal } = require('./local-ai');
 const { today: todayStats, recapText } = require('./day');
+const { detectFeeling, isQuestion } = require('./feelings');
 const {
   readBattery, BatteryWatcher, NetWatcher, isOnline,
 } = require('./power');
@@ -344,7 +345,7 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking
+// mood: happy | excited | alert | sleepy | hungry | love | sad | surprised | sly | thinking | joy | angry
 function say(text, {
   mood = 'happy', duration = 6000, sticky = false, key = null, sound = null, notify = false, urgent = false, link = '',
   button = null, // { label, action }: a button in the bubble that tells us you did it
@@ -626,6 +627,13 @@ function openForm(kind) {
 async function ask(question) {
   const q = String(question || '').trim().slice(0, 2000);
   if (!q) return;
+  // A feeling rather than a question ("yay!!", "ugh I hate this"): Buddy
+  // reacts by itself. No AI, no tokens.
+  const feeling = isQuestion(q) ? null : detectFeeling(q);
+  if (feeling) {
+    react(feeling);
+    return;
+  }
   if (asking) {
     say('One question at a time, I\'m still thinking 🤔', { mood: 'thinking', duration: 3000 });
     return;
@@ -682,6 +690,20 @@ async function askLocally(q, followUp) {
       { mood: 'sad', sticky: true, key: 'ask', urgent: true });
   } else {
     say(`Hmm, the local AI didn't work: ${res.text.slice(0, 200)}`, { mood: 'sad', sticky: true, key: 'ask', urgent: true });
+  }
+}
+
+function react(feeling) {
+  if (feeling === 'joy') {
+    say(pick(['Yaaay! 🎉', 'WOOHOO! 🥳', 'Yesss! 🔥', 'Let\'s gooo! ✨', 'Happy dance! 💃']),
+      { mood: 'joy', duration: 3500, sound: 'happy', key: 'feel' });
+    send('sparks', 24);
+  } else if (feeling === 'angry') {
+    say(pick(['Grr! Who did this to you?! 😤', 'Ugh, rude! 😤', 'I\'ll burn it down for you 🔥😤',
+      'Deep breath… then we fight 😤']), { mood: 'angry', duration: 4000, key: 'feel' });
+  } else {
+    say(pick(['Aww, come here 🫂', 'Sending you a warm glow 💛', 'I\'m right here with you 🫂']),
+      { mood: 'love', duration: 5000, key: 'feel' });
   }
 }
 

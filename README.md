@@ -84,6 +84,10 @@ Five minutes before each meeting, Buddy turns golden and says *"📅 Standup in 
 
 Buddy checks your calendar every 10 minutes. All-day events and cancelled meetings are skipped. Keep the secret address private: anyone who has it can see your calendar. Buddy stores it only in your settings file. Other calendars that offer an `.ics` link (Outlook, iCloud, Fastmail…) work too. Change the warning time with `meetingMinutesBefore`.
 
+### Tell it how you feel
+
+Type a feeling instead of a question into Buddy's box (double-click it): "yay!!", "woohoo I did it 🎉" gets a glowing, jumping **joy** face with sparks; "ugh I hate this", "this stupid thing doesn't work" gets an **angry** face that's on your side; "bad day 😢" gets a warm hug. Buddy recognises these with simple word lists in `feelings.js`, so this uses no AI and no tokens. Anything with a "?" still goes to *Ask me anything*.
+
 ### Ask me anything
 
 Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Windows/Linux), or right-click → **Ask me anything…**. Type your question and press Enter.
@@ -235,6 +239,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `renderer.js` | Face: eyes tracking, blinking, moods, speech bubble queue, sounds, reminder and ask forms |
 | `index.html`, `style.css` | The flame (a single SVG) and all expressions |
 | `ask.js` | *Ask me anything* → Claude Code |
+| `feelings.js` | Spots joy, anger and sadness in what you type to Buddy (tested) |
 | `day.js` | Today's numbers and the bedtime recap (tested) |
 | `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
