@@ -1,7 +1,7 @@
 // "Ask me anything": sends the question to Claude Code (`claude -p`), which
 // you already have and are logged in to, and returns a short answer.
 
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -28,6 +28,50 @@ function searchPath() {
   return [process.env.PATH || '', ...extra].join(path.delimiter);
 }
 
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+// Every place Claude Code might live: PATH, the usual install folders, and
+// npm installs under nvm/fnm.
+function candidates() {
+  const home = os.homedir();
+  const dirs = searchPath().split(path.delimiter).filter(Boolean);
+  for (const base of [path.join(home, '.nvm', 'versions', 'node'), path.join(home, '.fnm', 'node-versions')]) {
+    try {
+      for (const v of fs.readdirSync(base)) {
+        dirs.push(path.join(base, v, 'bin'), path.join(base, v, 'installation', 'bin'));
+      }
+    } catch {
+      /* not installed */
+    }
+  }
+  return dirs.map((d) => path.join(d, 'claude'));
+}
+
+// Last resort: ask your login shell, which knows the PATH your Terminal uses.
+function fromLoginShell() {
+  const sh = process.env.SHELL || '/bin/zsh';
+  return new Promise((resolve) => {
+    execFile(sh, ['-ilc', 'command -v claude'], { timeout: 8000 }, (err, out) => {
+      const line = String(out || '').trim().split('\n').pop();
+      resolve(!err && line.startsWith('/') && isFile(line) ? line : null);
+    });
+  });
+}
+
+let found = null;
+async function findClaude() {
+  if (process.platform === 'win32') return 'claude'; // cmd.exe searches PATH itself
+  if (found && isFile(found)) return found;
+  found = candidates().find(isFile) || await fromLoginShell();
+  return found;
+}
+
 function cleanAnswer(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -39,7 +83,13 @@ function cleanAnswer(text) {
 
 // Asks Claude. `followUp` continues the previous little conversation.
 // Resolves { ok, text } and never rejects.
-function askClaude(question, { cwd, followUp = false, model = '', timeoutMs = 120000 } = {}) {
+async function askClaude(question, opts = {}) {
+  const bin = await findClaude();
+  if (!bin) return { ok: false, text: 'claude not found', missing: true };
+  return run(bin, question, opts);
+}
+
+function run(bin, question, { cwd, followUp = false, model = '', timeoutMs = 120000 } = {}) {
   return new Promise((resolve) => {
     try {
       fs.mkdirSync(cwd, { recursive: true });
@@ -58,7 +108,7 @@ function askClaude(question, { cwd, followUp = false, model = '', timeoutMs = 12
 
     let child;
     try {
-      child = spawn('claude', argv, {
+      child = spawn(bin, argv, {
         cwd,
         env: { ...process.env, PATH: searchPath() },
         shell: process.platform === 'win32',
@@ -95,4 +145,4 @@ function askClaude(question, { cwd, followUp = false, model = '', timeoutMs = 12
   });
 }
 
-module.exports = { askClaude, cleanAnswer };
+module.exports = { askClaude, cleanAnswer, findClaude };

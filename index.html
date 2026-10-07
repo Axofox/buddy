@@ -10,8 +10,19 @@
   <div id="stage">
     <div id="bubble" class="hidden">
       <div id="bubble-text"></div>
+      <button id="bubble-join" class="hidden">Join call</button>
       <div id="bubble-hint">click to close</div>
     </div>
+
+    <form id="cal-form" class="panel hidden" autocomplete="off">
+      <div class="panel-title">Paste your calendar's secret address</div>
+      <div class="row">
+        <input id="cal-url" placeholder="https://calendar.google.com/…/basic.ics" spellcheck="false">
+        <button type="submit">OK</button>
+      </div>
+      <a id="cal-help" href="#">Where do I find it?</a>
+      <div id="cal-error" class="error"></div>
+    </form>
 
     <form id="ask-form" class="panel hidden" autocomplete="off">
       <input id="ask-text" placeholder="Ask me anything…" maxlength="2000">
@@ -24,7 +35,7 @@
         <input id="remind-when" placeholder="10m, 1h30, 14:30, 2pm">
         <button type="submit">OK</button>
       </div>
-      <div id="remind-error"></div>
+      <div id="remind-error" class="error"></div>
     </form>
 
     <div id="ball-wrap">

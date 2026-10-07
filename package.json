@@ -10,5 +10,8 @@
   },
   "devDependencies": {
     "electron": "^33.2.1"
+  },
+  "dependencies": {
+    "node-ical": "^0.26.1"
   }
 }
