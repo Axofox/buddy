@@ -25,38 +25,46 @@
     <div id="ball-wrap">
       <div id="ball-squash">
         <svg id="ball" viewBox="0 0 100 100" width="48" height="48">
-          <circle class="body" cx="50" cy="50" r="46"/>
+          <path class="body" d="M18 90 C13 76 13 58 18 46 C20 39 21 33 21 26 C27 30 31 34 33 39
+            C35 25 43 13 52 3 C56 13 60 21 62 30 C66 24 70 18 75 13 C77 22 79 30 80 38
+            C87 50 89 72 84 90 Q79 98 73 92 Q67 98 62 92 Q56 98 50 92 Q44 98 38 92
+            Q32 98 27 92 Q21 98 18 90 Z"/>
 
-          <!-- open eyes: plain dots that follow the cursor -->
+          <!-- open eyes: white dots with pupils that follow the cursor -->
           <g id="eyes">
-            <g class="eye" transform="translate(35 44)"><g class="pupil"><ellipse rx="6" ry="8"/></g></g>
-            <g class="eye" transform="translate(65 44)"><g class="pupil"><ellipse rx="6" ry="8"/></g></g>
+            <g class="eye" transform="translate(33 64)">
+              <circle class="white" r="9"/>
+              <g class="pupil"><circle r="5"/></g>
+              <path class="lid" d="M-10 -1 H10 V-11 H-10 Z"/>
+            </g>
+            <g class="eye" transform="translate(67 64)">
+              <circle class="white" r="9"/>
+              <g class="pupil"><circle r="5"/></g>
+              <path class="lid" d="M-10 -1 H10 V-11 H-10 Z"/>
+            </g>
           </g>
           <g id="eyes-closed" class="feature">
-            <path d="M27 46 Q35 51 43 46"/><path d="M57 46 Q65 51 73 46"/>
-          </g>
-          <g id="eyes-squint" class="feature">
-            <path d="M28 47 Q35 38 42 47"/><path d="M58 47 Q65 38 72 47"/>
+            <path d="M25 64 Q33 69 41 64"/><path d="M59 64 Q67 69 75 64"/>
           </g>
           <g id="eyes-heart" class="feature">
-            <path d="M35 52 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
-            <path d="M65 52 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
+            <path d="M33 71 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
+            <path d="M67 71 l-8 -8 a4.5 4.5 0 0 1 8 -5 a4.5 4.5 0 0 1 8 5 z"/>
           </g>
 
-          <!-- mouths -->
-          <path class="mouth m-happy" d="M42 65 Q50 72 58 65"/>
-          <path class="mouth m-excited filled" d="M39 63 Q50 80 61 63 Z"/>
-          <ellipse class="mouth m-alert filled" cx="50" cy="68" rx="5" ry="6"/>
-          <ellipse class="mouth m-surprised filled" cx="50" cy="68" rx="4" ry="5"/>
-          <path class="mouth m-sleepy" d="M45 67 L55 67"/>
-          <ellipse class="mouth m-sleep filled" cx="50" cy="67" rx="3" ry="2.5"/>
-          <path class="mouth m-hungry filled" d="M40 63 Q50 79 60 63 Z"/>
-          <path class="mouth m-love" d="M42 64 Q50 73 58 64"/>
-          <path class="mouth m-sad" d="M42 70 Q50 63 58 70"/>
+          <!-- mouths: tiny, between the eyes -->
+          <path class="mouth m-happy" d="M45 66 Q50 71 55 66"/>
+          <path class="mouth m-excited filled" d="M43 62 Q50 58 57 62 Q60 72 50 75 Q40 72 43 62 Z"/>
+          <ellipse class="mouth m-alert filled" cx="50" cy="69" rx="3.5" ry="4.5"/>
+          <circle class="mouth m-surprised filled" cx="50" cy="69" r="2"/>
+          <path class="mouth m-sleepy" d="M46 68 L54 68"/>
+          <circle class="mouth m-sleep filled" cx="50" cy="70" r="2"/>
+          <path class="mouth m-hungry" d="M45 67 Q48 64 50 67 Q52 64 55 67"/>
+          <path class="mouth m-love" d="M45 66 Q50 71 55 66"/>
+          <path class="mouth m-sad" d="M45 69 Q50 64 55 69"/>
 
           <!-- extras -->
-          <text id="exclaim" class="feature" x="84" y="16">!</text>
-          <g id="zzz" class="feature"><text x="78" y="20">z</text><text x="90" y="6">z</text></g>
+          <text id="exclaim" class="feature" x="84" y="30">!</text>
+          <g id="zzz" class="feature"><text x="80" y="34">z</text><text x="90" y="22">z</text></g>
         </svg>
       </div>
     </div>

@@ -1,6 +1,6 @@
 # Buddy
 
-A little bouncing ball with eyes that lives on your desktop. It:
+A little bouncing flame with eyes that lives on your desktop. It:
 
 - **tells you when Claude Code needs you** (a permission prompt, or Claude waiting for input) and when Claude is done
 - **says good morning** the first time you're at your computer each day
@@ -104,7 +104,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 {
   "name": "",
   "port": 47321,
-  "color": "#6ec6ff",
+  "color": "#ee5a3a",
   "startMode": "bounce",
   "morning": { "from": "05:00", "to": "11:30" },
   "lunch": "12:30",
