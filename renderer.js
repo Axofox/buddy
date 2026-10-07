@@ -350,9 +350,30 @@ buddy.on('night', (n) => {
   night = n;
   renderMood();
 });
+// ---------- holiday outfits ----------
+
+// Which outfit fits today's date (month is 1-12).
+function holidayOutfit(d = new Date()) {
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if (m === 10) return 'halloween';
+  if ((m === 12 && day === 31) || (m === 1 && day <= 2)) return 'newyear';
+  if (m === 12 && day <= 26) return 'christmas';
+  if (m === 2 && day >= 10 && day <= 14) return 'valentine';
+  return 'none';
+}
+
+let outfitSetting = 'auto';
+function applyOutfit() {
+  document.body.dataset.outfit = outfitSetting === 'auto' ? holidayOutfit() : outfitSetting;
+}
+setInterval(applyOutfit, 30 * 60000); // pick up a new day
+
 buddy.on('config', (c) => {
   sounds = c.sounds !== false;
   if (c.color) root.style.setProperty('--body', c.color);
+  outfitSetting = c.outfit || 'auto';
+  applyOutfit();
 });
 
 renderMood();

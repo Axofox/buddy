@@ -53,6 +53,7 @@ const DEFAULT_CONFIG = {
     apps: [],
   },
   typingCheers: true,
+  outfit: 'auto', // "auto" (holidays), "none", or always "halloween" | "christmas" | "newyear" | "valentine"
   askShortcut: 'CommandOrControl+Shift+Space', // "" disables the keyboard shortcut
   askModel: '', // e.g. "haiku" for faster answers; empty uses your Claude Code default
   askWith: 'claude', // "claude", or "local" for a private AI on this computer (Ollama)
@@ -136,7 +137,9 @@ function saveConfigKey(key, value) {
 }
 
 function publicConfig() {
-  return { color: config.color, sounds: config.sounds, name: config.name };
+  return {
+    color: config.color, sounds: config.sounds, name: config.name, outfit: config.outfit,
+  };
 }
 
 const saveState = () => writeJson(files().state, state);
@@ -1105,6 +1108,17 @@ function menuTemplate() {
     { label: 'Reminders', submenu: reminderItems },
     { label: 'Calendar', submenu: meetingMenu() },
     { type: 'separator' },
+    {
+      label: 'Outfit',
+      submenu: [['auto', 'Holidays (automatic)'], ['none', 'No outfit'], ['halloween', '🎃 Pumpkin'],
+        ['christmas', '🎅 Santa hat'], ['newyear', '🥳 Party hat'], ['valentine', '💘 Hearts']].map(([v, label]) => ({
+        label, type: 'radio', checked: (config.outfit || 'auto') === v,
+        click: () => {
+          saveConfigKey('outfit', v);
+          send('config', publicConfig());
+        },
+      })),
+    },
     {
       label: 'Sounds', type: 'checkbox', checked: config.sounds,
       click: (i) => {
