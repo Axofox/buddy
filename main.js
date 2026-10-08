@@ -15,6 +15,8 @@ const { askLocal } = require('./local-ai');
 const { today: todayStats, recapText } = require('./day');
 const { detectFeeling, isQuestion } = require('./feelings');
 const petLife = require('./pet');
+const claudeHooks = require('./claude-hooks');
+const os = require('os');
 const {
   readBattery, BatteryWatcher, NetWatcher, isOnline,
 } = require('./power');
@@ -1207,6 +1209,66 @@ function startServer() {
 }
 
 // ---------------------------------------------------------------------------
+// Connecting Claude Code (on this computer) to Buddy
+
+const claudeSettingsFile = () => path.join(os.homedir(), '.claude', 'settings.json');
+
+// Reads ~/.claude/settings.json. Returns {} if it doesn't exist yet, or null
+// if it isn't valid JSON (then we leave it alone).
+function readClaudeSettings() {
+  const f = claudeSettingsFile();
+  if (!fs.existsSync(f)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeClaudeSettings(settings) {
+  const f = claudeSettingsFile();
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  if (fs.existsSync(f)) fs.copyFileSync(f, `${f}.buddy-backup`); // just in case
+  fs.writeFileSync(f, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+function setClaudeConnection(on) {
+  const settings = readClaudeSettings();
+  if (!settings) {
+    say('Your ~/.claude/settings.json has a typo in it, so I didn\'t touch it 🙈 Fix it (or ask Claude to), then try again.',
+      { mood: 'sad', sticky: true, key: 'claude-setup' });
+    return;
+  }
+  try {
+    writeClaudeSettings(on ? claudeHooks.addBuddyHooks(settings, config.port)
+      : claudeHooks.removeBuddyHooks(settings));
+  } catch (e) {
+    say(`I couldn't update Claude Code's settings: ${e.message}`, { mood: 'sad', sticky: true, key: 'claude-setup' });
+    return;
+  }
+  say(on
+    ? 'Connected to Claude Code! 🔌 Restart any Claude Code that\'s already open, then I\'ll tell you when it\'s done or needs you.'
+    : 'Okay, disconnected from Claude Code 👋', { mood: on ? 'excited' : 'happy', duration: 9000, key: 'claude-setup', sound: on ? 'happy' : null });
+}
+
+function claudeMenu() {
+  const settings = readClaudeSettings();
+  const connected = settings && claudeHooks.hasBuddyHooks(settings);
+  return [
+    connected
+      ? { label: '✓ Connected to Claude Code', enabled: false }
+      : { label: 'Connect to Claude Code', click: () => setClaudeConnection(true) },
+    {
+      label: 'Test a Claude alert',
+      click: () => handleClaudeHook({
+        hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash', cwd: '/demo/project', session_id: 'test',
+      }),
+    },
+    ...(connected ? [{ label: 'Disconnect', click: () => setClaudeConnection(false) }] : []),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Menu
 
 function menuTemplate() {
@@ -1293,7 +1355,7 @@ function menuTemplate() {
   }
   items.push(
     { label: 'Open settings file', click: () => shell.openPath(files().config) },
-    { label: 'Test a Claude alert', click: () => handleClaudeHook({ hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash', cwd: '/demo/project', session_id: 'test' }) },
+    { label: 'Claude Code', submenu: claudeMenu() },
     { type: 'separator' },
     { label: 'Bye for now (quit)', click: () => app.quit() },
   );

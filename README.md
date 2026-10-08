@@ -135,9 +135,18 @@ While you type, the flame watches your keyboard and stops hopping around. The fa
 
 ## Connect it to Claude Code
 
-Claude Code can run a command on certain events (a feature called *hooks*). Buddy comes with `notify.js`, which forwards those events to Buddy. It finishes instantly and never blocks Claude, even when Buddy isn't running.
+Claude Code can tell other programs when something happens (a feature called *hooks*). Buddy uses this to know when Claude needs you or is done.
 
-Add this to `~/.claude/settings.json` and replace `/path/to/buddy` with the folder where you cloned this repo. On Windows, use forward slashes, for example `C:/Users/you/buddy/notify.js`.
+**The easy way:** right-click Buddy → **Claude Code** → **Connect to Claude Code**. Buddy adds its hooks to `~/.claude/settings.json`, keeping everything else in that file (and a backup next to it, `settings.json.buddy-backup`). Restart any Claude Code that's already running. **Test a Claude alert** in the same menu shows what an alert looks like, and **Disconnect** removes the hooks again.
+
+The hooks use `curl`, which every Mac has, so nothing else needs installing. They finish instantly and never slow Claude down, even when Buddy isn't running.
+
+This works for Claude Code running **on this computer** (in Terminal, or local sessions in the desktop app). Chats that run in the cloud (claude.ai, or cloud sessions in the app) can't reach Buddy; turn on the Claude app's notifications for those.
+
+<details>
+<summary>Setting it up by hand instead</summary>
+
+Add this to `~/.claude/settings.json`, replacing `/path/to/buddy` with the folder where you cloned this repo (on Windows, use forward slashes, e.g. `C:/Users/you/buddy/notify.js`):
 
 ```json
 {
@@ -157,13 +166,14 @@ Add this to `~/.claude/settings.json` and replace `/path/to/buddy` with the fold
 
 If that file already has a `"hooks"` section, merge these three entries into it.
 
+</details>
+
 | Claude Code event | Buddy |
 |---|---|
 | `Notification` (needs permission, or waiting for you) | 🙋 golden alert that stays until you click it, plus an OS notification. The project folder name is shown. |
 | `Stop` (Claude finished its turn) | "Claude is done! Your turn ✨" |
 | `UserPromptSubmit` (you replied to Claude) | Clears that session's alert automatically |
 
-To try it without Claude, right-click → **Test a Claude alert**.
 
 ## Talk to it from anywhere
 
@@ -257,6 +267,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `ask.js` | *Ask me anything* → Claude Code |
 | `pet.js`, `shapes.js` | The growing pet: sparks and stages (tested), and how each stage looks |
 | `feelings.js` | Spots joy, anger and sadness in what you type to Buddy (tested) |
+| `claude-hooks.js` | *Connect to Claude Code*: adds/removes Buddy's hooks in `~/.claude/settings.json` (tested) |
 | `day.js` | Today's numbers and the bedtime recap (tested) |
 | `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |
