@@ -16,7 +16,7 @@ A little bouncing flame with eyes that lives on your desktop. It:
 - **cheers you on while you type**: the flame flickers along, and long typing streaks get a "You're on fire! 🔥"
 - **grows with you**: it starts as a tiny dot and grows through 5 stages as you look after yourself, then transforms into a leaf, a little monster, a frog or a cat (see below)
 - **dresses up for holidays**: a pumpkin friend in October, a Santa hat in December, a party hat at New Year, hearts for Valentine's (right-click → **Outfit** to pick one or turn them off)
-- bounces around, **follows your mouse** if you ask, and its eyes always watch your cursor
+- bounces around near the **left and right edges** of your screen, out of the way of the text boxes in the middle (drop it in the middle and it hops back to an edge), and **follows your mouse** if you ask, and its eyes always watch your cursor
 
 ![Buddy's moods](docs/moods.png)
 
@@ -105,7 +105,7 @@ Type a feeling instead of a question into Buddy's box (double-click it): "yay!!"
 
 ### Ask me anything
 
-Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Windows/Linux), or right-click → **Ask me anything…**. Type your question and press Enter.
+Double-click the flame, press **⌘⇧Space** (Mac) or **Ctrl+Shift+Space** (Windows/Linux), or right-click → **Ask me anything…**. Type your question and press Enter. To close the box without asking, press Esc, click the ✕, click Buddy, or just click somewhere else.
 
 Buddy passes the question to [Claude Code](https://claude.com/claude-code) (`claude -p`), so you need the Claude Code command line installed and logged in. Nothing else to set up. If Buddy says it can't find Claude Code, open Terminal and run `claude --version`. If that says "command not found", install it with `curl -fsSL https://claude.ai/install.sh | bash`, run `claude` once to log in, then ask Buddy again. Answers are short, and Claude can search the web when it needs to. If you ask again within 10 minutes, Claude remembers the earlier question, so follow-ups like "and in French?" work. Click the answer to close it.
 
@@ -135,9 +135,18 @@ While you type, the flame watches your keyboard and stops hopping around. The fa
 
 ## Connect it to Claude Code
 
-Claude Code can run a command on certain events (a feature called *hooks*). Buddy comes with `notify.js`, which forwards those events to Buddy. It finishes instantly and never blocks Claude, even when Buddy isn't running.
+Claude Code can tell other programs when something happens (a feature called *hooks*). Buddy uses this to know when Claude needs you or is done.
 
-Add this to `~/.claude/settings.json` and replace `/path/to/buddy` with the folder where you cloned this repo. On Windows, use forward slashes, for example `C:/Users/you/buddy/notify.js`.
+**The easy way:** right-click Buddy → **Claude Code** → **Connect to Claude Code**. Buddy adds its hooks to `~/.claude/settings.json`, keeping everything else in that file (and a backup next to it, `settings.json.buddy-backup`). Restart any Claude Code that's already running. **Test a Claude alert** in the same menu shows what an alert looks like, and **Disconnect** removes the hooks again.
+
+The hooks use `curl`, which every Mac has, so nothing else needs installing. They finish instantly and never slow Claude down, even when Buddy isn't running.
+
+This works for Claude Code running **on this computer** (in Terminal, or local sessions in the desktop app). Chats that run in the cloud (claude.ai, or cloud sessions in the app) can't reach Buddy; turn on the Claude app's notifications for those.
+
+<details>
+<summary>Setting it up by hand instead</summary>
+
+Add this to `~/.claude/settings.json`, replacing `/path/to/buddy` with the folder where you cloned this repo (on Windows, use forward slashes, e.g. `C:/Users/you/buddy/notify.js`):
 
 ```json
 {
@@ -157,13 +166,14 @@ Add this to `~/.claude/settings.json` and replace `/path/to/buddy` with the fold
 
 If that file already has a `"hooks"` section, merge these three entries into it.
 
+</details>
+
 | Claude Code event | Buddy |
 |---|---|
 | `Notification` (needs permission, or waiting for you) | 🙋 golden alert that stays until you click it, plus an OS notification. The project folder name is shown. |
 | `Stop` (Claude finished its turn) | "Claude is done! Your turn ✨" |
 | `UserPromptSubmit` (you replied to Claude) | Clears that session's alert automatically |
 
-To try it without Claude, right-click → **Test a Claude alert**.
 
 ## Talk to it from anywhere
 
@@ -195,6 +205,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
   "port": 47321,
   "color": "#ee5a3a",
   "startMode": "bounce",
+  "roam": "edges",
   "morning": { "from": "05:00", "to": "11:30" },
   "lunch": "12:30",
   "dinner": "19:00",
@@ -235,6 +246,7 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 - Battery: a gentle note at 20%, a sticky "plug me in!" at 10% and an urgent one at 5% (only while unplugged), a thank-you when you plug in, and "fully charged" at 100%. Turn these off with `"battery": false` or just the last one with `"batteryFull": false`.
 - Internet: Buddy waits about 20 seconds before saying the internet is gone, so short blips stay quiet. To check, it loads Apple's tiny "is the internet working" page (the same one your Mac uses itself) every 10 seconds. Turn it off with `"internet": false`.
 - Only *Ask me anything* uses AI. Everything else Buddy does runs on your computer and uses no tokens.
+- `roam`: `"edges"` keeps Buddy near the left and right edges of the screen; `"anywhere"` lets it hop all over the bottom of the screen.
 - `askShortcut`: the keyboard shortcut for *Ask me anything*. Set it to `""` to turn it off. `askModel`: for example `"haiku"` for faster answers; leave it empty to use your Claude Code default.
 - New settings from updates are added to your file automatically, so you can find them there.
 - After `bedtime`, Buddy also looks sleepy.
@@ -257,6 +269,8 @@ Right-click → **Open settings file**. Changes apply as soon as you save. The d
 | `ask.js` | *Ask me anything* → Claude Code |
 | `pet.js`, `shapes.js` | The growing pet: sparks and stages (tested), and how each stage looks |
 | `feelings.js` | Spots joy, anger and sadness in what you type to Buddy (tested) |
+| `claude-hooks.js` | *Connect to Claude Code*: adds/removes Buddy's hooks in `~/.claude/settings.json` (tested) |
+| `roam.js` | Where Buddy hops to: near the screen edges, out of the way (tested) |
 | `day.js` | Today's numbers and the bedtime recap (tested) |
 | `power.js` | Battery and internet watching (tested) |
 | `local-ai.js` | *Ask me anything* → a local AI through Ollama (tested) |

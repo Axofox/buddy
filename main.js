@@ -15,6 +15,9 @@ const { askLocal } = require('./local-ai');
 const { today: todayStats, recapText } = require('./day');
 const { detectFeeling, isQuestion } = require('./feelings');
 const petLife = require('./pet');
+const claudeHooks = require('./claude-hooks');
+const roam = require('./roam');
+const os = require('os');
 const {
   readBattery, BatteryWatcher, NetWatcher, isOnline,
 } = require('./power');
@@ -39,6 +42,7 @@ const DEFAULT_CONFIG = {
   port: 47321, // local HTTP port for Claude Code hooks and scripts
   color: '#ee5a3a',
   startMode: 'bounce', // bounce | follow | still | sleep
+  roam: 'edges', // "edges": hop around near the left/right edges, out of the way; "anywhere"
   morning: { from: '05:00', to: '11:30' },
   lunch: '12:30',
   dinner: '19:00', // set to "" to disable
@@ -177,6 +181,7 @@ function bounds() {
   });
   const wa = d.workArea;
   return {
+    wa,
     minX: wa.x - (BX - BALL / 2), // lets the ball touch the screen edge
     maxX: wa.x + wa.width - (BX + BALL / 2),
     minY: wa.y,
@@ -184,16 +189,36 @@ function bounds() {
   };
 }
 
+// Where Buddy's centre can rest so that its speech bubble still fits on screen.
+function centreRange(b = bounds()) {
+  return { left: b.wa.x + BX, right: b.wa.x + b.wa.width - W + BX };
+}
+
+// Out in the middle of the screen, where text boxes usually are?
+function inTheWay() {
+  if (config.roam === 'anywhere') return false;
+  const { left, right } = centreRange();
+  return roam.inMiddle(pos.x + BX, left, right);
+}
+
 function hop(strength = 1, towardX = null) {
   const b = bounds();
   const cx = pos.x;
-  let dir;
-  if (towardX !== null) dir = Math.sign(towardX - (cx + BX)) || 1;
-  else if (cx < b.minX + 150) dir = 1;
-  else if (cx > b.maxX - 150) dir = -1;
-  else dir = Math.random() < 0.5 ? -1 : 1;
   vel.y = -(5.5 + Math.random() * 5.5) * strength;
-  vel.x = dir * (1.5 + Math.random() * 4) * (towardX !== null ? 0.6 : 1);
+  if (towardX === null && config.roam !== 'anywhere') {
+    // Jump towards a spot near an edge, landing about there.
+    const { left, right } = centreRange(b);
+    const target = roam.pickTarget(cx + BX, left, right);
+    const airFrames = (2 * Math.abs(vel.y)) / GRAVITY;
+    vel.x = Math.max(-9, Math.min(9, (target - (cx + BX)) / airFrames));
+  } else {
+    let dir;
+    if (towardX !== null) dir = Math.sign(towardX - (cx + BX)) || 1;
+    else if (cx < b.minX + 150) dir = 1;
+    else if (cx > b.maxX - 150) dir = -1;
+    else dir = Math.random() < 0.5 ? -1 : 1;
+    vel.x = dir * (1.5 + Math.random() * 4) * (towardX !== null ? 0.6 : 1);
+  }
   grounded = false;
 }
 
@@ -211,7 +236,8 @@ function physicsStep(now) {
       vel.y = -vel.y * RESTITUTION;
     } else {
       vel.y = 0;
-      if (!grounded) nextHopAt = now + (alerting ? 400 : 1500 + Math.random() * 6000);
+      // In the middle of the screen it hurries back to an edge.
+      if (!grounded) nextHopAt = now + (alerting ? 400 : inTheWay() ? 350 : 1500 + Math.random() * 6000);
       grounded = true;
     }
     vel.x *= 0.85;
@@ -260,9 +286,11 @@ function tick() {
   if (!win || win.isDestroyed() || hidden) return;
   const now = Date.now();
   const cursor = screen.getCursorScreenPoint();
-  // Is the mouse reaching for the buddy? Then don't run away from it.
+  // Is the mouse reaching for the buddy? Then don't run away from it. When
+  // nothing is urgent, only pointing right at it counts, so it doesn't stay
+  // in the way of whatever you're clicking near it.
   const dist = Math.hypot(cursor.x - (pos.x + BX), cursor.y - (pos.y + BY));
-  const near = dist < NEAR;
+  const near = alerting ? dist < NEAR : dist < BALL / 2 + 18;
 
   if (drag) {
     const nx = cursor.x - drag.offX;
@@ -278,8 +306,9 @@ function tick() {
     followStep(cursor, now, dist < NEAR_FOLLOW);
   } else if (mode === 'bounce') {
     physicsStep(now);
-    // Hold still while you reach for it, or while you're typing away.
-    if (grounded && (near || typing.typing)) nextHopAt = Math.max(nextHopAt, now + 800);
+    // Hold still while you reach for it, or while you're typing away (unless
+    // it's sitting in the middle, where it'd be in your way).
+    if (grounded && (near || (typing.typing && !inTheWay()))) nextHopAt = Math.max(nextHopAt, now + 800);
     if (grounded && now > nextHopAt) {
       hop(alerting ? 1.3 : 0.6 + Math.random() * 0.6, alerting ? cursor.x : null);
     }
@@ -1207,6 +1236,66 @@ function startServer() {
 }
 
 // ---------------------------------------------------------------------------
+// Connecting Claude Code (on this computer) to Buddy
+
+const claudeSettingsFile = () => path.join(os.homedir(), '.claude', 'settings.json');
+
+// Reads ~/.claude/settings.json. Returns {} if it doesn't exist yet, or null
+// if it isn't valid JSON (then we leave it alone).
+function readClaudeSettings() {
+  const f = claudeSettingsFile();
+  if (!fs.existsSync(f)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeClaudeSettings(settings) {
+  const f = claudeSettingsFile();
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  if (fs.existsSync(f)) fs.copyFileSync(f, `${f}.buddy-backup`); // just in case
+  fs.writeFileSync(f, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+function setClaudeConnection(on) {
+  const settings = readClaudeSettings();
+  if (!settings) {
+    say('Your ~/.claude/settings.json has a typo in it, so I didn\'t touch it 🙈 Fix it (or ask Claude to), then try again.',
+      { mood: 'sad', sticky: true, key: 'claude-setup' });
+    return;
+  }
+  try {
+    writeClaudeSettings(on ? claudeHooks.addBuddyHooks(settings, config.port)
+      : claudeHooks.removeBuddyHooks(settings));
+  } catch (e) {
+    say(`I couldn't update Claude Code's settings: ${e.message}`, { mood: 'sad', sticky: true, key: 'claude-setup' });
+    return;
+  }
+  say(on
+    ? 'Connected to Claude Code! 🔌 Restart any Claude Code that\'s already open, then I\'ll tell you when it\'s done or needs you.'
+    : 'Okay, disconnected from Claude Code 👋', { mood: on ? 'excited' : 'happy', duration: 9000, key: 'claude-setup', sound: on ? 'happy' : null });
+}
+
+function claudeMenu() {
+  const settings = readClaudeSettings();
+  const connected = settings && claudeHooks.hasBuddyHooks(settings);
+  return [
+    connected
+      ? { label: '✓ Connected to Claude Code', enabled: false }
+      : { label: 'Connect to Claude Code', click: () => setClaudeConnection(true) },
+    {
+      label: 'Test a Claude alert',
+      click: () => handleClaudeHook({
+        hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash', cwd: '/demo/project', session_id: 'test',
+      }),
+    },
+    ...(connected ? [{ label: 'Disconnect', click: () => setClaudeConnection(false) }] : []),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Menu
 
 function menuTemplate() {
@@ -1293,7 +1382,7 @@ function menuTemplate() {
   }
   items.push(
     { label: 'Open settings file', click: () => shell.openPath(files().config) },
-    { label: 'Test a Claude alert', click: () => handleClaudeHook({ hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash', cwd: '/demo/project', session_id: 'test' }) },
+    { label: 'Claude Code', submenu: claudeMenu() },
     { type: 'separator' },
     { label: 'Bye for now (quit)', click: () => app.quit() },
   );

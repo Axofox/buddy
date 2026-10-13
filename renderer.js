@@ -205,6 +205,11 @@ bubble.addEventListener('mousedown', (e) => {
 
 let pokes = [];
 buddy.on('poked', () => {
+  // Clicking Buddy while a box is open just closes the box.
+  if (anyFormOpen()) {
+    closeForm();
+    return;
+  }
   if (current && current.sticky) {
     next();
     return;
@@ -262,6 +267,8 @@ buddy.on('open-form', (kind) => {
   reportBubble();
 });
 
+const anyFormOpen = () => Object.values(forms).some((f) => !f.classList.contains('hidden'));
+
 function closeForm() {
   Object.values(forms).forEach((f) => f.classList.add('hidden'));
   buddy.send('form-closed');
@@ -311,6 +318,17 @@ calForm.addEventListener('submit', async (e) => {
 $('cal-help').addEventListener('click', (e) => {
   e.preventDefault();
   buddy.send('open-link', 'https://support.google.com/calendar/answer/37648?hl=en#zippy=%2Cget-your-calendar-view-only');
+});
+
+document.querySelectorAll('.panel-close').forEach((b) => b.addEventListener('click', closeForm));
+
+// Clicking anywhere else closes an empty ask/reminder box. (The calendar box
+// stays open: you may be off copying its address from the browser.)
+window.addEventListener('blur', () => {
+  const open = Object.entries(forms).find(([, f]) => !f.classList.contains('hidden'));
+  if (!open || open[0] === 'calendar') return;
+  const typed = [...open[1].querySelectorAll('input')].some((i) => i.value.trim());
+  if (!typed) closeForm();
 });
 
 Object.values(forms).forEach((f) => {
