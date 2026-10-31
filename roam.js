@@ -8,15 +8,19 @@ function inMiddle(x, left, right, edge = EDGE) {
   return f > edge && f < 1 - edge;
 }
 
+const CROSS = 0.3; // chance that a hop from an edge zone goes all the way to the other side
+
 // Picks the next spot (x of Buddy's centre) between left and right.
-// In an edge zone: somewhere else in the same zone. In the middle: the nearer edge zone.
-function pickTarget(x, left, right, { edge = EDGE, rand = Math.random } = {}) {
+// In an edge zone: usually somewhere else in the same zone, sometimes a big jump
+// over to the other side. In the middle: the nearer edge zone, right away.
+function pickTarget(x, left, right, { edge = EDGE, rand = Math.random, cross = CROSS } = {}) {
   const w = Math.max(right - left, 1);
   const zone = w * edge;
   const f = (x - left) / w;
-  const goLeft = f < 0.5;
+  let goLeft = f < 0.5;
+  if (inMiddle(x, left, right, edge) === false && rand() < cross) goLeft = !goLeft;
   const lo = goLeft ? left : right - zone;
   return lo + rand() * zone;
 }
 
-module.exports = { EDGE, inMiddle, pickTarget };
+module.exports = { EDGE, CROSS, inMiddle, pickTarget };

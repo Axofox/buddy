@@ -174,6 +174,8 @@ let lastSent = '';
 
 const GRAVITY = 0.55;
 const RESTITUTION = 0.72;
+const MAX_HOP_SPEED = 16; // px per frame, sideways
+const MAX_HOP_LIFT = 22; // px per frame, upwards
 
 function bounds() {
   const d = screen.getDisplayNearestPoint({
@@ -209,8 +211,13 @@ function hop(strength = 1, towardX = null) {
     // Jump towards a spot near an edge, landing about there.
     const { left, right } = centreRange(b);
     const target = roam.pickTarget(cx + BX, left, right);
+    // Long trips (out of the middle, or across to the other side) take one big
+    // high arc instead of lots of little hops.
+    const dx = target - (cx + BX);
+    const needVy = (Math.abs(dx) / MAX_HOP_SPEED) * (GRAVITY / 2);
+    vel.y = -Math.max(Math.abs(vel.y), Math.min(needVy, MAX_HOP_LIFT));
     const airFrames = (2 * Math.abs(vel.y)) / GRAVITY;
-    vel.x = Math.max(-9, Math.min(9, (target - (cx + BX)) / airFrames));
+    vel.x = Math.max(-MAX_HOP_SPEED, Math.min(MAX_HOP_SPEED, dx / airFrames));
   } else {
     let dir;
     if (towardX !== null) dir = Math.sign(towardX - (cx + BX)) || 1;
@@ -237,7 +244,7 @@ function physicsStep(now) {
     } else {
       vel.y = 0;
       // In the middle of the screen it hurries back to an edge.
-      if (!grounded) nextHopAt = now + (alerting ? 400 : inTheWay() ? 350 : 1500 + Math.random() * 6000);
+      if (!grounded) nextHopAt = now + (alerting ? 400 : inTheWay() ? 150 : 1500 + Math.random() * 6000);
       grounded = true;
     }
     vel.x *= 0.85;
@@ -308,7 +315,8 @@ function tick() {
     physicsStep(now);
     // Hold still while you reach for it, or while you're typing away (unless
     // it's sitting in the middle, where it'd be in your way).
-    if (grounded && (near || (typing.typing && !inTheWay()))) nextHopAt = Math.max(nextHopAt, now + 800);
+    // In the middle it never waits: it gets out of the way, even if the mouse is next to it.
+    if (grounded && !inTheWay() && (near || typing.typing)) nextHopAt = Math.max(nextHopAt, now + 800);
     if (grounded && now > nextHopAt) {
       hop(alerting ? 1.3 : 0.6 + Math.random() * 0.6, alerting ? cursor.x : null);
     }
